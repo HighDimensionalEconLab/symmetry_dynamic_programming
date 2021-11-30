@@ -1,0 +1,10 @@
+pytorch-lightning>=1.5
+torch >= 1.10
+matplotlib>=3.4
+tensorboard>= 2.7
+pytest
+black
+jsonargparse >= 4.0.3
+pandas
+econ-layers >= 0.0.20
+SciPy >= 1.7.1
