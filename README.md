@@ -9,17 +9,11 @@ Source for "Exploiting Symmetry in High-Dimensional Dynamic Programming"
 
     or use the `Code` button to the top right of this webpage (if you are on GitHub Desktop.)
 
-2. Install pytorch through conda.  For example, with a GPU:
-```bashe
-conda install pytorch cudatoolkit=11.3 -c pytorch -c conda-forge
-```
-Or without,
-```bash
-conda install pytorch cpuonly -c pytorch
-```
 
-3. Install packages
+3. Install dependencies.  Consider a conda [virtual environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
 ```bash
 pip install -r requirements.txt
-pip install -e .
+
 ```
+
+If pytorch is not working, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cudatoolkit=10.2 -c pytorch ` or something similar, and then retrying the dependencies installation.

@@ -10,10 +10,11 @@ from econ_layers.utilities import dict_to_cpu
 from pytorch_lightning.utilities.cli import LightningCLI
 from pathlib import Path
 from copy import deepcopy
+from typing import Optional
 
-# Local packages
-from .linear_policy_LQ import investment_equilibrium_LQ
 
+# Local files and utilities
+import symmetry_dp.linear_policy_LQ
 
 # Does not support \mu != 0.  Hence only 1D quadrature required
 # Version with deep sets (i.e., network for both Phi and Rho)
@@ -42,15 +43,15 @@ class InvestmentEulerBaseline(pl.LightningModule):
         X_0_loc: float,
         X_0_scale: float,
         # settings for deep learning approximation
-        phi_activator: lazy_instance(nn.ReLU),
         phi_layers: int,
         phi_dim: int,
         phi_bias: bool,
-        rho_activator: lazy_instance(nn.ReLU),
         rho_layers: int,
         rho_dim: int,
         rho_bias: bool,
         L: int,
+        phi_activator: Optional[nn.Module] = lazy_instance(nn.ReLU),
+        rho_activator: Optional[nn.Module] = lazy_instance(nn.ReLU),
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -58,9 +59,9 @@ class InvestmentEulerBaseline(pl.LightningModule):
         # Networks for the function representation
         self.rho = nn.Sequential(
             nn.Linear(L, rho_dim, bias=rho_bias),
-            deepcopy(rho_activator)
+            deepcopy(rho_activator),
             # Add in rho_layers - 1
-            * [
+            *[
                 nn.Sequential(
                     nn.Linear(
                         rho_dim,
@@ -92,12 +93,14 @@ class InvestmentEulerBaseline(pl.LightningModule):
         )
 
         # Solves the LQ problem to find the comparison for the baseline
-        self.H_0, self.H_1 = investment_equilibrium_LQ(1, self.hparams)
+        self.H_0, self.H_1 = symmetry_dp.linear_policy_LQ.investment_equilibrium_LQ(
+            1, self.hparams
+        )
         # The "simulation_policy" function starts by using the linear_policy
         # to begin the simulation of X_t grid points.  Swaps out later
         self.simulation_policy = self.linear_policy
 
-    # Used for evaluating u(X) given the current network 
+    # Used for evaluating u(X) given the current network
     def forward(self, X):
         num_batches, N = X.shape
 
@@ -136,8 +139,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
 
         Eu = (
             (
-                torch.stack(tuple(self(X_primes[i])
-                                  for i in range(len(self.nodes))))
+                torch.stack(tuple(self(X_primes[i]) for i in range(len(self.nodes))))
                 .squeeze(2)
                 .T
                 @ self.weights
@@ -301,14 +303,16 @@ def save_results(trainer, model, metrics_dict, print_metrics=True):
 
 
 def cli_main():
-    # See config_defaults.yaml for defaults on the trainers/etc.)
     cli = LightningCLI(
         InvestmentEulerBaseline,
+        run=False,
         seed_everything_default=123,
         save_config_overwrite=True,
+        parser_kwargs={"default_config_files": ["baseline_example_defaults.yaml"]},
     )
 
     # Fit the model
+    cli.trainer.fit(cli.model)
     metrics_dict = dict_to_cpu(cli.trainer.logged_metrics.copy())
 
     # Generate test data

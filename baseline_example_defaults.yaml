@@ -26,18 +26,24 @@ trainer:
         patience: 50
         mode: min
         check_finite: true
-        divergence_threshold: 1e6 # stops if larger
-        stopping_threshold: 1e-6
+        divergence_threshold: 100000 # stops if larger
+        stopping_threshold: 1.0e-6
 optimizer:
   class_path: torch.optim.Adam
   init_args:
-    lr: 5e-3
+    lr: 5.0e-3
+# Temporarily setting this scheduler, but it isn't tuned
 lr_scheduler:
-  class_path: torch.optim.lr_scheduler.ReduceLROnPlateau
+  class_path: torch.optim.lr_scheduler.StepLR
   init_args:
-    factor: 0.1
-    mode: min
-    patience: 5
+    step_size: 100
+    gamma: 0.1
+# lr_scheduler:
+#   class_path: torch.optim.lr_scheduler.ReduceLROnPlateau
+#   init_args:
+#     factor: 0.1
+#     mode: min
+#     patience: 5
 model:
   # Model parameters
   N: 128
@@ -64,13 +70,9 @@ model:
   X_0_scale: 0.05
 
   # Settings for neural networks
-  phi_activator:
-    class_path: torch.nn.ReLU
   phi_layers: 2
   phi_dim: 128
   phi_bias: true
-  rho_activator:
-    class_path: torch.nn.ReLU
   rho_layers: 4
   rho_dim: 128
   rho_bias: true
