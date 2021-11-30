@@ -4,11 +4,38 @@ from scipy import optimize
 import sys
 from .LQ import *
 
-
+# Calculates the LQ solution imposing symmetry
+# by hand in the optimization process
 def investment_equilibrium_LQ(N, params):
     H_iv = [80.0, -0.2, 0.0]
 
-    def gen_A(H_0, H_1, N):  # used later for A_hat generation
+    # Equation (22)
+    B = np.zeros([N + 2, 1])
+    B[1] = 1.0
+
+    # Equation (23)
+    C_1 = np.zeros([N + 1, N + 1])
+    C_2 = np.zeros([1, N + 1])
+    C_1[np.diag_indices(N + 1)] = params.sigma
+    C_1[:, 0] = params.eta
+    C_1[0, 1] = params.sigma
+    C = np.concatenate((C_2, C_1))
+
+    # Equation (24)
+    R = np.zeros([N + 2, N + 2])
+    R[1, :] = params.alpha_1 / (2 * N)
+    R[:, 1] = params.alpha_1 / (2 * N)
+    R[1, 1] = 0.0
+    R[0, 1] = -params.alpha_0 / 2
+    R[1, 0] = -params.alpha_0 / 2
+
+    Q = params.gamma / 2
+
+    # calculating A_hat
+    def F_root(H):
+        # Equation (30)
+        H_0, H_1, H_2 = H  # H_2 not used
+
         # Equation (21)
         A = (H_1 / N) * np.ones([N + 2, N + 2])
         A[np.diag_indices(N + 2)] = 1.0 - params.delta + H_1 / N
@@ -18,43 +45,7 @@ def investment_equilibrium_LQ(N, params):
         A[1, :] = 0.0
         A[0, 0] = 1.0
         A[1, 1] = 1.0 - params.delta
-        return A
 
-    def gen_C():
-        # Equation (23)
-        C_1 = np.zeros([N + 1, N + 1])
-        C_2 = np.zeros([1, N + 1])
-        C_1[np.diag_indices(N + 1)] = params.sigma
-        C_1[:, 0] = params.eta
-        C_1[0, 1] = params.sigma
-        C = np.concatenate((C_2, C_1))
-        return C
-
-    def gen_R():
-        # Equation (24)
-        R = np.zeros([N + 2, N + 2])
-        R[1, :] = params.alpha_1 / (2 * N)
-        R[:, 1] = params.alpha_1 / (2 * N)
-        R[1, 1] = 0.0
-        R[0, 1] = -params.alpha_0 / 2
-        R[1, 0] = -params.alpha_0 / 2
-        return R
-
-    # Equation (22)
-    B = np.zeros([N + 2, 1])
-    B[1] = 1.0
-
-    C = gen_C()
-
-    R = gen_R()
-
-    Q = params.gamma / 2
-
-    # calculating A_hat
-    def F_root(H):
-        # Equation (30)
-        H_0, H_1, H_2 = H  # H_2 not used
-        A = gen_A(H_0, H_1, N)
         lq = LQ(Q, R, A, B, C, beta=params.beta)
         P, F, d = lq.stationary_values()
         return np.array([F[0][0], F[0][1], F[0][2]]) - np.array([-H[0], 0.0, -H[1] / N])

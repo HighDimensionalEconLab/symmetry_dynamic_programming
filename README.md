@@ -1,7 +1,6 @@
 # Symmetry and Dynamic Programming
 Source for "Exploiting Symmetry in High-Dimensional Dynamic Programming"
 
-
 ## Installing and Testing
 
 1. Clone the repo and `cd` to it; i.e. run

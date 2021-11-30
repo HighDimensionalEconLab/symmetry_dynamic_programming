@@ -55,7 +55,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        # Networks for the Function Representation
+        # Networks for the function representation
         self.rho = nn.Sequential(
             nn.Linear(L, rho_dim, bias=rho_bias),
             deepcopy(rho_activator)
@@ -97,7 +97,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
         # to begin the simulation of X_t grid points.  Swaps out later
         self.simulation_policy = self.linear_policy
 
-    # Used for evaluating the current approximation
+    # Used for evaluating u(X) given the current network 
     def forward(self, X):
         num_batches, N = X.shape
 
@@ -116,20 +116,40 @@ class InvestmentEulerBaseline(pl.LightningModule):
         return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
 
     # model residuals given a set of states
-    def model_residuals(self, x):
-        # y = (
-        #     torch.matmul(self.G, x.t()).unsqueeze(0).t()
-        # )  # broadcasts and shapes to align for residual broadcasting
-        # # difference equation: p(x) = y(x) + beta * p(x')
-        # # here: p(x) = G x + beta * p(A x)
-        # # x_t = torch.stack([torch.zeros(len(y), device = self.device, dtype = self.dtype), torch.ones(len(y), device = self.device, dtype = self.dtype), y])
-        # x_tp1 = torch.matmul(self.A, x.t()).t()
-        # y_tp1 = torch.matmul(self.G, x_tp1.t()).unsqueeze(0).t()
+    def model_residuals(self, X):
+        u_X = self(X)
 
-        # # x_p = torch.matmul(self.A, x.t()).t()  # broadcasts x_p = A x
-        # residuals = (
-        #     y + self.hparams.beta * self(y_tp1) - self(y)
-        # )  # TODO: check broadcasting in debugger!
+        # equation (12) and (13)
+        X_primes = torch.stack(
+            [
+                u_X
+                + (1 - self.hparams.delta) * X
+                + self.hparams.sigma * self.expectation_shock_vector
+                + self.hparams.eta * node[0]
+                for node in self.nodes
+            ]
+        ).type_as(X)
+
+        # p(X') expectation
+        p_primes = self.p(X_primes)  # n_quadrature_points by T
+        Ep = (p_primes.T @ self.weights).type_as(X).reshape(-1, 1)
+
+        Eu = (
+            (
+                torch.stack(tuple(self(X_primes[i])
+                                  for i in range(len(self.nodes))))
+                .squeeze(2)
+                .T
+                @ self.weights
+            )
+            .type_as(X)
+            .reshape(-1, 1)
+        )
+
+        # Euler equation itself
+        residuals = self.hparams.gamma * u_X - self.hparams.beta * (
+            Ep + self.hparams.gamma * Eu * (1 - self.hparams.delta)
+        )  # equation (14)
         return residuals
 
     # Utility function which makes the batch better for broadcasting.
