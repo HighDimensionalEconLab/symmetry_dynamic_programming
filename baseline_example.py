@@ -2,6 +2,8 @@ import pandas as pd
 import torch
 import pytorch_lightning as pl
 import yaml
+import itertools
+import numpy as np
 
 from torch import nn
 from jsonargparse import lazy_instance
@@ -15,6 +17,23 @@ from typing import Optional
 
 # Local files and utilities
 import symmetry_dp.linear_policy_LQ
+
+# TODO: MOVE TO UTILITIES
+def gauss_hermite_1D(N):
+    nodes, weights = np.polynomial.hermite.hermgauss(N)
+    nodes *= np.sqrt(2.0)
+    weights *= 1.0 / np.sqrt(np.pi)
+    return nodes, weights
+
+
+def unit_normal_quadrature(dims):
+    l = [gauss_hermite_1D(N) for N in dims]
+    nodes, weights = list(map(list, zip(*l)))
+    nodes = itertools.product(*nodes)
+    weights = itertools.product(*weights)
+    weights = map(np.prod, weights)
+    return np.array(list(nodes)), np.array(list(weights))
+
 
 # Does not support \mu != 0.  Hence only 1D quadrature required
 # Version with deep sets (i.e., network for both Phi and Rho)
@@ -30,15 +49,16 @@ class InvestmentEulerBaseline(pl.LightningModule):
         delta: float,
         eta: float,
         nu: float,
-        zeta: float,
         # parameters for method
         verbose: bool,
-        W_quadrature_nodes: int,
+        omega_quadrature_nodes: int,
         normalize_shock_vector: bool,
         train_trajectories: int,
         val_trajectories: int,
         test_trajectories: int,
+        always_simulate_linear: bool,
         batch_size: int,
+        shuffle_training: bool,
         T: int,
         X_0_loc: float,
         X_0_scale: float,
@@ -93,12 +113,14 @@ class InvestmentEulerBaseline(pl.LightningModule):
         )
 
         # Solves the LQ problem to find the comparison for the baseline
-        self.H_0, self.H_1 = symmetry_dp.linear_policy_LQ.investment_equilibrium_LQ(
-            1, self.hparams
-        )
+        # used for comparison as well as simulation of datapoints
+        self.H_0, self.H_1 = symmetry_dp.linear_policy_LQ.investment_equilibrium_LQ(1, self.hparams)
+
         # The "simulation_policy" function starts by using the linear_policy
-        # to begin the simulation of X_t grid points.  Swaps out later
+        # to begin the simulation of X_t grid points.  Swaps out later if always_simulate_linear = False
         self.simulation_policy = self.linear_policy
+
+        # Note: deferring some construction to the "setup" step because it occurs on the GPU rather than CPU
 
     # Used for evaluating u(X) given the current network
     def forward(self, X):
@@ -106,10 +128,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
 
         # Apply network with the representation and "mean" pooling
         phi_X = torch.stack(
-            [
-                torch.mean(self.phi(X[i, :].reshape([N, 1])), 0)
-                for i in range(num_batches)
-            ]
+            [torch.mean(self.phi(X[i, :].reshape([N, 1])), 0) for i in range(num_batches)]
         )
         return self.rho(phi_X)
 
@@ -118,7 +137,13 @@ class InvestmentEulerBaseline(pl.LightningModule):
     def linear_policy(self, X):
         return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
 
+    # Model definition
+    def p(self, X):
+        # TODO: later can see if a special case to avoid the power for nu = 1 is helpful
+        return self.hparams.alpha_0 - self.hparams.alpha_1 * X.mean(2).pow(self.hparams.nu)
+
     # model residuals given a set of states
+    # TODO: This might be cleaned up, but need to be careful with GPUs
     def model_residuals(self, X):
         u_X = self(X)
 
@@ -135,11 +160,11 @@ class InvestmentEulerBaseline(pl.LightningModule):
 
         # p(X') expectation
         p_primes = self.p(X_primes)  # n_quadrature_points by T
-        Ep = (p_primes.T @ self.weights).type_as(X).reshape(-1, 1)
+        Ep = (p_primes.T @ self.quadrature_weights).type_as(X).reshape(-1, 1)
 
         Eu = (
             (
-                torch.stack(tuple(self(X_primes[i]) for i in range(len(self.nodes))))
+                torch.stack(tuple(self(X_primes[i]) for i in range(len(self.quadrature_nodes))))
                 .squeeze(2)
                 .T
                 @ self.weights
@@ -154,136 +179,237 @@ class InvestmentEulerBaseline(pl.LightningModule):
         )  # equation (14)
         return residuals
 
-    # Utility function which makes the batch better for broadcasting.
-    def reshape_batch(self, batch):
-        x_t = batch
-        return x_t
+    def training_step(self, X, batch_idx):
+        residuals = self.model_residuals(X)
 
-    def reshape_batch_test(self, batch):
-        samples, t, y_t, p_f_t, x_t = batch
-        samples = samples.reshape(len(batch[0]), 1)
-        t = t.reshape(len(batch[0]), 1)
-        y_t = y_t.reshape(len(batch[0]), 1)
-        p_f_t = p_f_t.reshape(len(batch[0]), 1)
-
-        return samples, t, y_t, p_f_t, x_t
-
-    def training_step(self, batch, batch_idx):
-        x = self.reshape_batch(batch)
-
-        residuals = self.residuals(x)
         loss = (residuals ** 2).sum() / len(residuals)
 
         self.log("train_loss", loss)
-        self.log("epoch", self.current_epoch, logger=True, on_step=False, on_epoch=True)
         return loss
 
-    def validation_step(self, batch, batch_idx):
-        x = self.reshape_batch(batch)
+    def validation_step(self, X, batch_idx):
+        residuals = self.model_residuals(X)
 
-        residuals = self.residuals(x)
         loss = (residuals ** 2).sum() / len(residuals)
 
-        # bubble_mse = torch.nn.functional.mse_loss(self(x), p_f)
-
         self.log("val_loss", loss, prog_bar=True)
-        # self.log("bubble_mse", bubble_mse, prog_bar=True)
+
+        # calculate policy error relative to analytic if linear
+        if self.params.nu == 1:
+            u_ref = self.linear_policy(X)
+            u_rel_error = torch.mean(torch.abs(self(X) - u_ref) / torch.abs(u_ref))
+            self.log("val_u_rel_error", u_rel_error, prog_bar=True)
+            u_abs_error = torch.mean(torch.abs(self(X) - u_ref))
+            self.log("val_u_abs_error", u_abs_error, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
-        pass
-        # samples, t, y, p_f, x = self.reshape_batch_test(batch)
-        # y_init = self.y_0[samples]
+        # Test data includes trajectory number, time, etc.
 
-        # # get fundamentals
-        # y_t = torch.matmul(self.G, x.t()).unsqueeze(0).t()
-        # p = self(y_t)
-        # p_bubble = p - p_f
-        # p_error = p_bubble / p_f
-        # bubble_mse = torch.nn.functional.mse_loss(p, p_f)
-        # residuals = self.residuals(x)
-        # loss = (residuals ** 2).sum() / len(residuals)
-        # self.test_results = pd.concat(
-        #     [
-        #         self.test_results,
-        #         pd.DataFrame(
-        #             dict_to_cpu(
-        #                 {
-        #                     "sample": samples,
-        #                     "t": t,  # just the t index for now
-        #                     "y_0 ": y_init,
-        #                     "y_t": y_t,
-        #                     "residuals": residuals,
-        #                     "p_t": p,
-        #                     "p_f_t": p_f,
-        #                     "p_bubble": p_bubble,
-        #                     "p_error": p_error,
-        #                 }
-        #             )
-        #         ),
-        #     ]
-        # )
-        # self.log("bubble_mse", bubble_mse)
-        # self.log("test_loss", loss, prog_bar=True)
+        X = batch["X"]
+        residuals = self.model_residuals(X)
+        loss = (residuals ** 2).sum() / len(residuals)
+
+        self.log("test_loss", loss, prog_bar=True)
+
+        # Additional logging results
+        if self.params.nu == 1:
+            u_linear = self.linear_policy(X)
+            u_X = self(X)
+            u_rel_error = torch.abs(u_X - u_linear) / torch.abs(u_linear)
+            u_abs_error = torch.abs(u_X - u_linear)
+
+            self.test_residuals = pd.concat(
+                [
+                    self.test_residuals,
+                    pd.DataFrame(
+                        dict_to_cpu(
+                            {
+                                "t": batch["t"],
+                                "ensemble": batch["ensemble"],
+                                "u_hat": u_X,
+                                "residual": residuals,
+                                "u_reference": u_linear,
+                            }
+                        )
+                    ),
+                ]
+            )
+            # Log comparisons
+            self.log("test_u_rel_error", torch.mean(u_rel_error), prog_bar=True)
+            self.log("test_u_abs_error", torch.mean(u_abs_error), prog_bar=True)
+        else:
+            u_X = self(X)
+            self.test_residuals_df = pd.concat(
+                [
+                    self.test_residuals_df,
+                    pd.DataFrame(
+                        dict_to_cpu(
+                            {
+                                "t": batch["t"],
+                                "ensemble": batch["ensemble"],
+                                "u_hat": u_X,
+                                "residual": residuals,
+                            }
+                        )
+                    ),
+                ]
+            )
 
     ## Data and simulation calculations
+    def simulate(self, w, omega):
+        # TODO: Get number of trajectories from the aggregate shocks/etc.
+        num_trajectories = omega.size[0]
+        data = torch.zeros(
+            num_trajectories,
+            self.hparams.T + 1,
+            self.hparams.N,
+            device=self.device,
+            dtype=self.dtype,
+        )
+
+        data[:, 0, :] = self.X_0
+        for t in range(0, self.hparams.T):
+            data[:, t + 1, :] = (
+                self.simulation_policy(data[:, t, :])  # num_ensembles by N
+                + (1 - self.hparams.delta) * data[:, t, :]
+                + self.hparams.sigma * w[:, t, :]
+                + self.hparams.eta * omega[:, t]
+            )
+        return torch.cat(data.unbind(0))  # or something like that?
 
     # Simulates all of the data using the state space model
+    # At this point, the code is running local to the GPU/etc.
     def setup(self, stage):
-        pass
-        # if stage == "fit" or stage is None:
-        #     y = torch.linspace(
-        #         self.hparams.y_grid_min,
-        #         self.hparams.y_grid_max,
-        #         self.hparams.sim_grid_points,
-        #     )
 
-        #     self.simulated_data = []
-        #     self.simulated_data = list()
+        # quadrature for use within the expectation calculations
+        quadrature_nodes, quadrature_weights = unit_normal_quadrature(
+            (self.hparams.omega_quadrature_nodes,)
+        )
+        self.quadrature_nodes = torch.tensor(quadrature_nodes, dtype=self.dtype, device=self.device)
+        self.quadrature_weights = torch.tensor(
+            quadrature_weights, dtype=self.dtype, device=self.device
+        )
 
-        #     for i in range(0, self.hparams.sim_grid_points):
-        #         # x_i = torch.stack([torch.zeros(1, device = self.device, dtype = self.dtype), torch.ones(1, device = self.device, dtype = self.dtype), y[i]*torch.ones(1, device = self.device, dtype = self.dtype)])
-        #         x_i = torch.tensor([0.0, 1.0, y[i]])
-        #         self.simulated_data.append(x_i)
+        # Monte Carlo draw for the expectations, possibly normalizing it
+        vec = torch.randn(1, self.hparams.N, device=self.device, dtype=self.dtype)
+        self.expectation_shock_vector = (
+            (vec - vec.mean()) / vec.std() if self.hparams.normalize_shock_vector else vec
+        )
 
-        #     # y = torch.arange(min_value, max_value, step)
-        #     # x = torch.stack([torch.zeros(len(y), device = self.device, dtype = self.dtype), torch.ones(len(y), device = self.device, dtype = self.dtype), y])
+        # Draw initial condition for the X_0 to simulate
+        X_0_dist = torch.distributions.normal.Normal(  # not a tensor
+            self.hparams.X_0_loc, self.hparams.X_0_scale
+        )
+        self.X_0 = torch.abs(
+            self.X_0_dist.sample((self.hparams.N,)),
+            device=self.device,
+            dtype=self.dtype,
+        )
 
-        #     # self.simulated_data = list(x)
+        if stage == "fit" or stage is None:
+            # Create shocks for reuse during simulation.  Fixed to prevent too radical of changes during the fitting process, but not especially important
+            self.omega_train = torch.randn(
+                self.hparams.train_trajectories,
+                self.hparams.T,
+                1,
+                device=self.device,
+                dtype=self.dtype,
+            )
+            self.w_train = torch.randn(
+                self.hparams.train_trajectories,
+                self.hparams.T,
+                self.hparams.N,
+                device=self.device,
+                dtype=self.dtype,
+            )
 
-        #     self.train_data = self.simulated_data
-        #     self.val_data = self.train_data
-        # elif stage == "test":
-        #     self.simulated_data = []
-        #     self.simulated_data = list()
-        #     x_t = self.x_0
-        #     n_trajectories = len(self.y_0)
-        #     for t in torch.arange(0.0, self.hparams.max_T_test):
-        #         y_t = self.G @ x_t
-        #         p_f_t = self.H @ x_t
-        #         # appends each trajectory separately
-        #         for i in range(0, n_trajectories):
-        #             data_i_t = (i, t, y_t[i], p_f_t[i], x_t[:, i])
-        #             self.simulated_data.append(data_i_t)
-        #         x_t = self.A @ x_t  # iterate forward
-        #     self.test_data = self.simulated_data
+            self.omega_val = torch.randn(
+                self.hparams.val_trajectories,
+                self.hparams.T,
+                1,
+                device=self.device,
+                dtype=self.dtype,
+            )
+            self.w_val = torch.randn(
+                self.hparams.val_trajectories,
+                self.hparams.T,
+                self.hparams.N,
+                device=self.device,
+                dtype=self.dtype,
+            )
+
+            # Simulate fixing the shock sequence
+            self.train_data = self.simulate(
+                self.w_train,
+                self.omega_train,
+            )
+            self.val_data = self.simulate(
+                self.w_val,
+                self.omega_val,
+            )
+
+            # switch future simulations to use the network?
+            if self.hparams.always_simulate_linear is False:
+                self.simulation_policy = (
+                    self.forward
+                )  # use internal neural network.  TODO: Check if forward is correct?
+
+        if stage == "test" or stage is None:
+
+            test_trajectories = self.hparams.test_trajectories
+
+            self.omega_test = torch.randn(
+                self.hparams.test_trajectories,
+                self.hparams.T,
+                1,
+                device=self.device,
+                dtype=self.dtype,
+            )
+            self.w_test = torch.randn(
+                self.hparams.test_trajectories,
+                self.hparams.T,
+                self.hparams.N,
+                device=self.device,
+                dtype=self.dtype,
+            )
+            self.test_data = self.simulate(
+                self.w_test,
+                self.omega_test,
+            )
+
+            # metadata zipping
+            # TODO: VERIFY STRUCTURE
+            zipped = [
+                {"ensemble": n, "t": t, "X": data[n, t, :]}
+                for n in range(test_trajectories)
+                for t in range(T + 1)
+            ]
+            self.test_data = zipped  # used by the dataloader
+            self.test_results = pd.DataFrame()
 
     def train_dataloader(self):
         return DataLoader(
             self.train_data,
-            batch_size=self.hparams.batch_size,
+            batch_size=self.hparams.batch_size
+            if self.hparams.batch_size > 0
+            else len(self.train_data),
             shuffle=self.hparams.shuffle_training,
         )
 
     def val_dataloader(self):
         return DataLoader(
             self.val_data,
-            batch_size=self.hparams.batch_size,
+            batch_size=self.hparams.batch_size
+            if self.hparams.batch_size > 0
+            else len(self.val_data),
         )
 
     def test_dataloader(self):
         return DataLoader(
             self.test_data,
-            batch_size=self.hparams.batch_size,
+            batch_size=self.hparams.batch_size
+            if self.hparams.batch_size > 0
+            else len(self.test_data),
         )
 
 
@@ -297,9 +423,7 @@ def save_results(trainer, model, metrics_dict, print_metrics=True):
 
     # Store the test_results field on model if it exists
     if hasattr(model, "test_results"):
-        model.test_results.to_csv(
-            Path(trainer.log_dir) / "test_results.csv", index=False
-        )
+        model.test_results.to_csv(Path(trainer.log_dir) / "test_results.csv", index=False)
 
 
 def cli_main():

@@ -55,16 +55,17 @@ model:
   delta: 0.05
   eta: 0.001
   nu: 1.0
-  zeta: 1.0
 
   # Settings for method
   verbose: true
-  W_quadrature_nodes: 7
+  omega_quadrature_nodes: 7
   normalize_shock_vector: true
+  always_simulate_linear: false
   train_trajectories: 16
   val_trajectories: 8
   test_trajectories: 32
   batch_size: 32 # set to 0 for full dataset
+  shuffle_training: true
   T: 63
   X_0_loc: 0.9
   X_0_scale: 0.05

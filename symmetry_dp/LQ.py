@@ -1,5 +1,5 @@
 # From https://github.com/QuantEcon/QuantEcon.py/blob/master/quantecon/lqcontrol.py and https://github.com/QuantEcon/QuantEcon.py/blob/master/quantecon/matrix_eqn.py
- 
+
 # Copyright © 2013-2021 Thomas J. Sargent and John Stachurski: BSD-3
 # All rights reserved.
 
@@ -11,8 +11,8 @@ from numpy.linalg import solve
 from scipy.linalg import solve_discrete_lyapunov as sp_solve_discrete_lyapunov
 from scipy.linalg import solve_discrete_are as sp_solve_discrete_are
 
-def solve_discrete_riccati(A, B, Q, R, N=None, tolerance=1e-10, max_iter=500,
-                           method="doubling"):
+
+def solve_discrete_riccati(A, B, Q, R, N=None, tolerance=1e-10, max_iter=500, method="doubling"):
     """
     Solves the discrete-time algebraic Riccati equation
     .. math::
@@ -55,7 +55,7 @@ def solve_discrete_riccati(A, B, Q, R, N=None, tolerance=1e-10, max_iter=500,
     (2010): pp-935.
     """
     EPS = np.finfo(float).eps
-    methods = ['doubling', 'qz']
+    methods = ["doubling", "qz"]
     if method not in methods:
         msg = "Check your method input. Should be {} or {}".format(*methods)
         raise ValueError(msg)
@@ -73,7 +73,7 @@ def solve_discrete_riccati(A, B, Q, R, N=None, tolerance=1e-10, max_iter=500,
     else:
         N = np.atleast_2d(N)
 
-    if method == 'qz':
+    if method == "qz":
         X = sp_solve_discrete_are(A, B, Q, R, s=N.T)
         return X
 
@@ -87,7 +87,7 @@ def solve_discrete_riccati(A, B, Q, R, N=None, tolerance=1e-10, max_iter=500,
         Z = R + gamma * BB
         cn = np.linalg.cond(Z)
         if cn * EPS < 1:
-            Q_tilde = - Q + dot(N.T, solve(Z, N + gamma * BTA)) + gamma * I
+            Q_tilde = -Q + dot(N.T, solve(Z, N + gamma * BTA)) + gamma * I
             G0 = dot(B, solve(Z, B.T))
             A0 = dot(I - gamma * G0, A) - dot(B, solve(Z, N))
             H0 = gamma * dot(A.T, A0) - Q_tilde
@@ -108,7 +108,7 @@ def solve_discrete_riccati(A, B, Q, R, N=None, tolerance=1e-10, max_iter=500,
     R_hat = R + gamma * BB
 
     # == Initial conditions == #
-    Q_tilde = - Q + dot(N.T, solve(R_hat, N + gamma * BTA)) + gamma * I
+    Q_tilde = -Q + dot(N.T, solve(R_hat, N + gamma * BTA)) + gamma * I
     G0 = dot(B, solve(R_hat, B.T))
     A0 = dot(I - gamma * G0, A) - dot(B, solve(R_hat, N))
     H0 = gamma * dot(A.T, A0) - Q_tilde
@@ -133,12 +133,12 @@ def solve_discrete_riccati(A, B, Q, R, N=None, tolerance=1e-10, max_iter=500,
 
     return H1 + gamma * I  # Return X
 
+
 class LQ:
     def __init__(self, Q, R, A, B, C=None, N=None, beta=1, T=None, Rf=None):
         # == Make sure all matrices can be treated as 2D arrays == #
-        converter = lambda X: np.atleast_2d(np.asarray(X, dtype='float'))
-        self.A, self.B, self.Q, self.R, self.N = list(map(converter,
-                                                          (A, B, Q, R, N)))
+        converter = lambda X: np.atleast_2d(np.asarray(X, dtype="float"))
+        self.A, self.B, self.Q, self.R, self.N = list(map(converter, (A, B, Q, R, N)))
         # == Record dimensions == #
         self.k, self.n = self.Q.shape[0], self.R.shape[0]
 
@@ -159,7 +159,7 @@ class LQ:
         if T:
             # == Model is finite horizon == #
             self.T = T
-            self.Rf = np.asarray(Rf, dtype='float')
+            self.Rf = np.asarray(Rf, dtype="float")
             self.P = self.Rf
             self.d = 0
         else:
@@ -168,12 +168,13 @@ class LQ:
             self.T = None
 
             if (self.C != 0).any() and beta >= 1:
-                raise ValueError('beta must be strictly smaller than 1 if ' +
-                    'T = None and C != 0.')
+                raise ValueError(
+                    "beta must be strictly smaller than 1 if " + "T = None and C != 0."
+                )
 
         self.F = None
 
-    def stationary_values(self, method='doubling'):
+    def stationary_values(self, method="doubling"):
         # === simplify notation === #
         Q, R, A, B, N, C = self.Q, self.R, self.A, self.B, self.N, self.C
 
