@@ -119,7 +119,6 @@ class InvestmentEulerBaseline(pl.LightningModule):
         # The "simulation_policy" function starts by using the linear_policy
         # to begin the simulation of X_t grid points.  Swaps out later if always_simulate_linear = False
         self.simulation_policy = self.linear_policy
-
         # Note: deferring some construction to the "setup" step because it occurs on the GPU rather than CPU
 
     # Used for evaluating u(X) given the current network
@@ -297,7 +296,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
         )
 
         # Draw initial condition for the X_0 to simulate
-        X_0_dist = torch.distributions.normal.Normal(  # not a tensor
+        self.X_0_dist = torch.distributions.normal.Normal(  # not a tensor
             self.hparams.X_0_loc, self.hparams.X_0_scale
         )
         self.X_0 = torch.abs(
