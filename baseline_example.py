@@ -257,7 +257,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
     ## Data and simulation calculations
     def simulate(self, w, omega):
         # TODO: Get number of trajectories from the aggregate shocks/etc.
-        num_trajectories = omega.size[0]
+        num_trajectories = omega.shape[0]
         data = torch.zeros(
             num_trajectories,
             self.hparams.T + 1,
@@ -300,9 +300,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
             self.hparams.X_0_loc, self.hparams.X_0_scale
         )
         self.X_0 = torch.abs(
-            self.X_0_dist.sample((self.hparams.N,)),
-            device=self.device,
-            dtype=self.dtype,
+            self.X_0_dist.sample((self.hparams.N,))
         )
 
         if stage == "fit" or stage is None:
