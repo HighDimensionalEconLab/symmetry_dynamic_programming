@@ -153,7 +153,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
                 + (1 - self.hparams.delta) * X
                 + self.hparams.sigma * self.expectation_shock_vector
                 + self.hparams.eta * node[0]
-                for node in self.nodes
+                for node in self.quadrature_nodes
             ]
         ).type_as(X)
 
@@ -166,7 +166,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
                 torch.stack(tuple(self(X_primes[i]) for i in range(len(self.quadrature_nodes))))
                 .squeeze(2)
                 .T
-                @ self.weights
+                @ self.quadrature_weights
             )
             .type_as(X)
             .reshape(-1, 1)
@@ -194,7 +194,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
         self.log("val_loss", loss, prog_bar=True)
 
         # calculate policy error relative to analytic if linear
-        if self.params.nu == 1:
+        if self.hparams.nu == 1:
             u_ref = self.linear_policy(X)
             u_rel_error = torch.mean(torch.abs(self(X) - u_ref) / torch.abs(u_ref))
             self.log("val_u_rel_error", u_rel_error, prog_bar=True)
@@ -377,9 +377,9 @@ class InvestmentEulerBaseline(pl.LightningModule):
             # metadata zipping
             # TODO: VERIFY STRUCTURE
             zipped = [
-                {"ensemble": n, "t": t, "X": data[n, t, :]}
+                {"ensemble": n, "t": t, "X": self.data[n, t, :]}
                 for n in range(test_trajectories)
-                for t in range(T + 1)
+                for t in range(self.hparams.T + 1)
             ]
             self.test_data = zipped  # used by the dataloader
             self.test_results = pd.DataFrame()
