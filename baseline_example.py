@@ -217,9 +217,9 @@ class InvestmentEulerBaseline(pl.LightningModule):
             u_rel_error = torch.abs(u_X - u_linear) / torch.abs(u_linear)
             u_abs_error = torch.abs(u_X - u_linear)
 
-            self.test_residuals = pd.concat(
+            self.test_results = pd.concat(
                 [
-                    self.test_residuals,
+                    self.test_results,
                     pd.DataFrame(
                         dict_to_cpu(
                             {
@@ -238,9 +238,9 @@ class InvestmentEulerBaseline(pl.LightningModule):
             self.log("test_u_abs_error", torch.mean(u_abs_error), prog_bar=True)
         else:
             u_X = self(X)
-            self.test_residuals_df = pd.concat(
+            self.test_results = pd.concat(
                 [
-                    self.test_residuals_df,
+                    self.test_results,
                     pd.DataFrame(
                         dict_to_cpu(
                             {
@@ -299,9 +299,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
         self.X_0_dist = torch.distributions.normal.Normal(  # not a tensor
             self.hparams.X_0_loc, self.hparams.X_0_scale
         )
-        self.X_0 = torch.abs(
-            self.X_0_dist.sample((self.hparams.N,))
-        )
+        self.X_0 = torch.abs(self.X_0_dist.sample((self.hparams.N,)))
 
         if stage == "fit" or stage is None:
             # Create shocks for reuse during simulation.  Fixed to prevent too radical of changes during the fitting process, but not especially important
@@ -382,11 +380,11 @@ class InvestmentEulerBaseline(pl.LightningModule):
                 dtype=self.dtype,
             )
             data[:, 0, :] = self.X_0
-            
+
             # metadata zipping
             # TODO: VERIFY STRUCTURE
             zipped = [
-                {"ensemble": n, "t": t, "X": self.data[n, t, :]}
+                {"ensemble": n, "t": t, "X": data[n, t, :]}
                 for n in range(test_trajectories)
                 for t in range(self.hparams.T + 1)
             ]
