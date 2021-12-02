@@ -1,5 +1,5 @@
 trainer:
-  max_epochs: 1000
+  max_epochs: 100
   min_epochs: 0
   max_time: 00:00:15:00
   precision: 32
@@ -31,7 +31,7 @@ trainer:
 optimizer:
   class_path: torch.optim.Adam
   init_args:
-    lr: 5.0e-3
+    lr: 1.0e-3
 # Temporarily setting this scheduler, but it isn't tuned
 lr_scheduler:
   class_path: torch.optim.lr_scheduler.StepLR
