@@ -367,24 +367,14 @@ class InvestmentEulerBaseline(pl.LightningModule):
                 device=self.device,
                 dtype=self.dtype,
             )
-            self.test_data = self.simulate(
+            self.test_data = self.simulate(  # this one needs to be stacked
                 self.w_test,
                 self.omega_test,
-            )
-
-            data = torch.zeros(
-                test_trajectories,
-                self.hparams.T + 1,
-                self.hparams.N,
-                device=self.device,
-                dtype=self.dtype,
-            )
-            data[:, 0, :] = self.X_0
+            ).reshape([self.omega_test.shape[0], self.hparams.T + 1, self.hparams.N])
 
             # metadata zipping
-            # TODO: VERIFY STRUCTURE
             zipped = [
-                {"ensemble": n, "t": t, "X": data[n, t, :]}
+                {"ensemble": n, "t": t, "X": self.test_data[n, t, :]}
                 for n in range(test_trajectories)
                 for t in range(self.hparams.T + 1)
             ]
