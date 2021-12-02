@@ -211,7 +211,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
         self.log("test_loss", loss, prog_bar=True)
 
         # Additional logging results
-        if self.params.nu == 1:
+        if self.hparams.nu == 1:
             u_linear = self.linear_policy(X)
             u_X = self(X)
             u_rel_error = torch.abs(u_X - u_linear) / torch.abs(u_linear)
@@ -374,6 +374,15 @@ class InvestmentEulerBaseline(pl.LightningModule):
                 self.omega_test,
             )
 
+            data = torch.zeros(
+                test_trajectories,
+                self.hparams.T + 1,
+                self.hparams.N,
+                device=self.device,
+                dtype=self.dtype,
+            )
+            data[:, 0, :] = self.X_0
+            
             # metadata zipping
             # TODO: VERIFY STRUCTURE
             zipped = [
