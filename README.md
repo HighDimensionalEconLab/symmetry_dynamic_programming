@@ -18,26 +18,34 @@ If pytorch is not working, consider [installing manually](https://pytorch.org/ge
 
 ## Jupyter Notebook for Exploration
 
-You can load the Jupyter notebook [baseline_example.ipynb](baseline_example.ipynb) directly in VS Code or on the commandline with `jupyter lab` run in the local directory.  This notebook loads the `baseline_example.py` and provides a utility to explore it in the notebook instead of on the commandline.
+You can load the Jupyter notebook [baseline_example.ipynb](baseline_example.ipynb) directly in VS Code or on the command-line with `jupyter lab` run in the local directory.  This notebook loads the `baseline_example.py` and provides a utility to explore it in the notebook instead of on the command-line.
 
 
 
 ## CLI Usage
 There is a command-line interface to solve for the equilibrium given various model and neural network parameters.  This is especially convenient for deploying on the cloud (e.g. using https://grid.ai) when running in parallel.
 
-To use this, in a console at the root of this project,, you can do things such as the following.
+To use this, in a console at the root of this project, you can do things such as the following.
 ```bash
 python baseline_example.py --trainer.max_epochs 5
 ```
-
 Or to change a neural network architecture, you could try things such as 
 ```bash
-python baseline_example.py --trainer.max_epochs 5 --model.nu 1.05 --model.L 8
+python baseline_example.py --trainer.max_epochs 5 --model.L 8
+```
+```bash
+python baseline_example.py --trainer.max_epochs 5 --model.phi_layers 1
+```
+
+To change the economic variables such nonlinearity in prices, you could try things such as
+
+```bash
+python baseline_example.py --trainer.max_epochs 5 --model.nu 1.05
 ```
 
 To see the list of all possible options, see `python baseline_example.py --help`
 
-THe output of these prints to the console, but is also saved in a folder named `lightning_logs` for the particular experiment.  This includes
+The output of these prints to the console, but is also saved in a folder named `lightning_logs` for the particular experiment.  This includes
 - `config.yaml` which lets you see the full set of parameters used in the experiment
 - `metrics.yaml` for a summary of the results
 - `test_results.csv` which includes the full on the "test" trajectories.  That CSV file can be loaded for plotting
