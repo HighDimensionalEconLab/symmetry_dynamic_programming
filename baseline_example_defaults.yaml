@@ -58,7 +58,6 @@ model:
 
   # Settings for method
   verbose: true
-  plot_results: true
   omega_quadrature_nodes: 7
   normalize_shock_vector: true
   always_simulate_linear: false

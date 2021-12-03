@@ -3,7 +3,6 @@ import torch
 import pytorch_lightning as pl
 import yaml
 import itertools
-import matplotlib.pyplot as plt
 import numpy as np
 
 from torch import nn
@@ -71,7 +70,6 @@ class InvestmentEulerBaseline(pl.LightningModule):
         rho_dim: int,
         rho_bias: bool,
         L: int,
-        plot_results: bool,
         phi_activator: Optional[nn.Module] = lazy_instance(nn.ReLU),
         rho_activator: Optional[nn.Module] = lazy_instance(nn.ReLU),
     ):
@@ -84,7 +82,14 @@ class InvestmentEulerBaseline(pl.LightningModule):
             deepcopy(rho_activator),
             # Add in rho_layers - 1
             *[
-                nn.Sequential(nn.Linear(rho_dim, rho_dim, bias=rho_bias,), deepcopy(rho_activator),)
+                nn.Sequential(
+                    nn.Linear(
+                        rho_dim,
+                        rho_dim,
+                        bias=rho_bias,
+                    ),
+                    deepcopy(rho_activator),
+                )
                 for i in range(rho_layers - 1)
             ],
             nn.Linear(rho_dim, 1, bias=True),
@@ -94,7 +99,14 @@ class InvestmentEulerBaseline(pl.LightningModule):
             deepcopy(phi_activator),
             # Add in phi_layers - 1
             *[
-                nn.Sequential(nn.Linear(phi_dim, phi_dim, bias=phi_bias,), deepcopy(phi_activator),)
+                nn.Sequential(
+                    nn.Linear(
+                        phi_dim,
+                        phi_dim,
+                        bias=phi_bias,
+                    ),
+                    deepcopy(phi_activator),
+                )
                 for i in range(phi_layers - 1)
             ],
             nn.Linear(phi_dim, L, bias=phi_bias),
@@ -322,8 +334,14 @@ class InvestmentEulerBaseline(pl.LightningModule):
             )
 
             # Simulate fixing the shock sequence
-            self.train_data = self.simulate(self.w_train, self.omega_train,)
-            self.val_data = self.simulate(self.w_val, self.omega_val,)
+            self.train_data = self.simulate(
+                self.w_train,
+                self.omega_train,
+            )
+            self.val_data = self.simulate(
+                self.w_val,
+                self.omega_val,
+            )
 
             # switch future simulations to use the network?
             if self.hparams.always_simulate_linear is False:
@@ -350,7 +368,8 @@ class InvestmentEulerBaseline(pl.LightningModule):
                 dtype=self.dtype,
             )
             self.test_data = self.simulate(  # this one needs to be stacked
-                self.w_test, self.omega_test,
+                self.w_test,
+                self.omega_test,
             ).reshape([self.omega_test.shape[0], self.hparams.T + 1, self.hparams.N])
 
             # metadata zipping
@@ -401,41 +420,6 @@ def save_results(trainer, model, metrics_dict, print_metrics=True):
         model.test_results.to_csv(Path(trainer.log_dir) / "test_results.csv", index=False)
 
 
-def plot_results(model):
-    fontsize = 10
-    ticksize = 14
-    figsize = (6, 3.5)
-    params = {
-        "text.usetex": True,
-        "font.family": "serif",
-        "figure.figsize": figsize,
-        "figure.dpi": 80,
-        "figure.edgecolor": "k",
-        "font.size": fontsize,
-        "axes.labelsize": fontsize,
-        "axes.titlesize": fontsize,
-        "xtick.labelsize": ticksize,
-        "ytick.labelsize": ticksize,
-    }
-    plt.figure()
-    plt.rcParams.update(params)
-
-    df = model.test_results[
-        model.test_results["ensemble"] == 0
-    ]  # first ensemble in dataframe from model on test data
-    fig, ax = plt.subplots()
-
-    if model.hparams.nu == 1.0:  # only add reference line if linear
-        ax.plot(df["t"], df["u_reference"], dashes=[10, 5, 10, 5], label=r"$u(X_t)$, LQ")
-    ax.plot(df["t"], df["u_hat"], label=r"$u(X_t)$, $\phi($ReLU$)$")
-    ax.legend(prop={"size": fontsize})
-    ax.set_title(r"$u(X_t)$ with $\phi($ReLU$)$ : Equilibrium Path")
-    ax.set_xlabel(r"Time($t$)")
-    plt.clf()
-
-    return fig, ax
-
-
 def cli_main():
     cli = LightningCLI(
         InvestmentEulerBaseline,
@@ -459,10 +443,6 @@ def cli_main():
 
     # save results
     save_results(cli.trainer, cli.model, metrics_dict)
-
-    if cli.model.hparams.plot_results:
-        fig, ax = plot_results(cli.model)
-        fig.savefig(cli.trainer.log_dir + "/u_plot.pdf")
 
 
 if __name__ == "__main__":
