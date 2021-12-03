@@ -420,18 +420,20 @@ def plot_results(model):
     plt.figure()
     plt.rcParams.update(params)
 
-    df = model.test_results  # dataframe from model on test data
-    # fig, ax = plt.subplots()
+    df = model.test_results[
+        model.test_results["ensemble"] == 0
+    ]  # first ensemble in dataframe from model on test data
+    fig, ax = plt.subplots()
 
-    # if model.hparams.nu == 1.0:  # only add reference line if linear
-    #     ax.plot(df["t"], df["u_reference"], dashes=[10, 5, 10, 5], label=r"$u(X_t)$, LQ")
-    # ax.plot(df["t"], df["u_hat"], label=r"$u(X_t)$, $\phi($ReLU$)$")
-    # ax.legend(prop={"size": fontsize})
-    # ax.set_title(r"$u(X_t)$ with $\phi($ReLU$)$ : Equilibrium Path")
-    # ax.set_xlabel(r"Time($t$)")
-    # plt.show()
+    if model.hparams.nu == 1.0:  # only add reference line if linear
+        ax.plot(df["t"], df["u_reference"], dashes=[10, 5, 10, 5], label=r"$u(X_t)$, LQ")
+    ax.plot(df["t"], df["u_hat"], label=r"$u(X_t)$, $\phi($ReLU$)$")
+    ax.legend(prop={"size": fontsize})
+    ax.set_title(r"$u(X_t)$ with $\phi($ReLU$)$ : Equilibrium Path")
+    ax.set_xlabel(r"Time($t$)")
+    plt.clf()
 
-    return ax
+    return fig, ax
 
 
 def cli_main():
@@ -459,8 +461,8 @@ def cli_main():
     save_results(cli.trainer, cli.model, metrics_dict)
 
     if cli.model.hparams.plot_results:
-        ax = plot_results(cli.model)
-        plt.savefig(ax, cli.trainer.log_dir + "/u_plot.pdf")
+        fig, ax = plot_results(cli.model)
+        fig.savefig(cli.trainer.log_dir + "/u_plot.pdf")
 
 
 if __name__ == "__main__":
