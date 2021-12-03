@@ -3,24 +3,22 @@ Source for "Exploiting Symmetry in High-Dimensional Dynamic Programming"
 
 ## Installing and Testing
 
-1. Clone the repo and `cd` to it; i.e. run
-        
-        git clone https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git
-
-    or use the `Code` button to the top right of this webpage (if you are on GitHub Desktop.)
-
-
-3. Install dependencies.  Consider a conda [virtual environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
+1. Ensure you have installed Python.  For example, using [Anaconda](https://www.anaconda.com/products/individual)
+2. Recommended but not required: Install [VS Code](https://code.visualstudio.com/) along with its [Python Extension](https://code.visualstudio.com/docs/languages/python)
+3. Clone this repository.
+  - Recommended: With VS Code, go `<Shift-Control-P>` to open up the commandbar, then choose `Git Clone`, and use the URL `https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`.  That will give you a full environment to work with.
+  - ALternatively, you can clone it with git installed `git clone https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`
+4. Install dependencies.  Consider a conda [virtual environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).  With a terminal in that cloned folder,
 ```bash
 pip install -r requirements.txt
-
 ```
+If you are in the VS Code, open its [integrated terminal](https://code.visualstudio.com/docs/editor/integrated-terminal) within the project window will start in the correct location.
 
 If pytorch is not working, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cudatoolkit=10.2 -c pytorch ` or something similar, and then retrying the dependencies installation.
 
 ## Jupyter Notebook for Exploration
 
-You can load the jupyter notebook [baseline_example.ipynb](baseline_example.ipynb) in VS Code or with `jupyter lab` run in the local directory.  This notebook loads the `baseline_example.py` and provides a utility to explore it in the notebook instead of on the commandline.
+You can load the Jupyter notebook [baseline_example.ipynb](baseline_example.ipynb) directly in VS Code or on the commandline with `jupyter lab` run in the local directory.  This notebook loads the `baseline_example.py` and provides a utility to explore it in the notebook instead of on the commandline.
 
 
 
