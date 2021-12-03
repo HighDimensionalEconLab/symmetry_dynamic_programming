@@ -438,7 +438,8 @@ def cli_main():
     metrics_dict.update(dict_to_cpu(cli.trainer.logged_metrics))
 
     # print results
-    print(cli.model.test_results)
+    if cli.model.hparams.verbose:
+        print(cli.model.test_results)
 
     # save results
     save_results(cli.trainer, cli.model, metrics_dict)

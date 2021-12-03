@@ -131,3 +131,5 @@ dmypy.json
 .DS_Store
 **/lightning_logs
 .vscode/settings.json
+config.yaml
+checkpoints/*
