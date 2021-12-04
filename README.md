@@ -5,14 +5,14 @@ Source for "Exploiting Symmetry in High-Dimensional Dynamic Programming"
 
 1. Ensure you have installed Python.  For example, using [Anaconda](https://www.anaconda.com/products/individual)
 2. Recommended but not required: Install [VS Code](https://code.visualstudio.com/) along with its [Python Extension](https://code.visualstudio.com/docs/languages/python)
-3. Clone this repository.
+3. Clone this repository
   - Recommended: With VS Code, go `<Shift-Control-P>` to open up the commandbar, then choose `Git Clone`, and use the URL `https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`.  That will give you a full environment to work with.
-  - ALternatively, you can clone it with git installed `git clone https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`
+  - Alternatively, you can clone it with git installed `git clone https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`
 4. Install dependencies.  Consider a conda [virtual environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).  With a terminal in that cloned folder,
 ```bash
 pip install -r requirements.txt
 ```
-If you are in the VS Code, open its [integrated terminal](https://code.visualstudio.com/docs/editor/integrated-terminal) within the project window will start in the correct location.
+If you are in VS Code, opening its [integrated terminal](https://code.visualstudio.com/docs/editor/integrated-terminal) within the project window will start it in the correct location.
 
 If pytorch is not working, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cudatoolkit=10.2 -c pytorch ` or something similar, and then retrying the dependencies installation.
 
@@ -29,7 +29,7 @@ To use this, in a console at the root of this project, you can do things such as
 ```bash
 python baseline_example.py --trainer.max_epochs 5
 ```
-Or to change a neural network architecture, you could try things such as 
+Or to change the neural network architecture, you could try things such as 
 ```bash
 python baseline_example.py --trainer.max_epochs 5 --model.L 8
 ```
