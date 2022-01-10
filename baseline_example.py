@@ -8,6 +8,7 @@ import numpy as np
 from torch import nn
 from jsonargparse import lazy_instance
 from torch.utils.data import DataLoader
+import econ_layers
 from econ_layers.utilities import dict_to_cpu
 from pytorch_lightning.utilities.cli import LightningCLI
 from pathlib import Path
@@ -63,54 +64,14 @@ class InvestmentEulerBaseline(pl.LightningModule):
         X_0_loc: float,
         X_0_scale: float,
         # settings for deep learning approximation
-        phi_layers: int,
-        phi_dim: int,
-        phi_bias: bool,
-        rho_layers: int,
-        rho_dim: int,
-        rho_bias: bool,
-        L: int,
-        phi_activator: Optional[nn.Module] = lazy_instance(nn.ReLU),
-        rho_activator: Optional[nn.Module] = lazy_instance(nn.ReLU),
+        rho: nn.Module,
+        phi: nn.Module,
     ):
         super().__init__()
-        self.save_hyperparameters()
+        self.rho = rho
+        self.phi = phi
 
-        # Networks for the function representation
-        self.rho = nn.Sequential(
-            nn.Linear(L, rho_dim, bias=rho_bias),
-            deepcopy(rho_activator),
-            # Add in rho_layers - 1
-            *[
-                nn.Sequential(
-                    nn.Linear(
-                        rho_dim,
-                        rho_dim,
-                        bias=rho_bias,
-                    ),
-                    deepcopy(rho_activator),
-                )
-                for i in range(rho_layers - 1)
-            ],
-            nn.Linear(rho_dim, 1, bias=True),
-        )
-        self.phi = nn.Sequential(
-            nn.Linear(1, phi_dim, bias=phi_bias),
-            deepcopy(phi_activator),
-            # Add in phi_layers - 1
-            *[
-                nn.Sequential(
-                    nn.Linear(
-                        phi_dim,
-                        phi_dim,
-                        bias=phi_bias,
-                    ),
-                    deepcopy(phi_activator),
-                )
-                for i in range(phi_layers - 1)
-            ],
-            nn.Linear(phi_dim, L, bias=phi_bias),
-        )
+        self.save_hyperparameters()
 
         # Solves the LQ problem to find the comparison for the baseline
         # used for comparison as well as simulation of datapoints
