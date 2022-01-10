@@ -68,8 +68,8 @@ class InvestmentEulerBaseline(pl.LightningModule):
         phi: nn.Module,
     ):
         super().__init__()
-        self.rho = self.hparams.rho
-        self.phi = self.hparams.phi
+        self.rho = rho
+        self.phi = phi
 
         self.save_hyperparameters()
 
