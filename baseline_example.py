@@ -22,80 +22,6 @@ from pytorch_lightning.loggers import WandbLogger
 
 warnings.filterwarnings(action="ignore", category=UserWarning, message="Due to class_path change from")
 
-# UTILITIES
-
-# Calculates the LQ solution imposing symmetry
-# by hand in the optimization process
-def investment_equilibrium_LQ(N, params):
-    H_iv = [80.0, -0.2, 0.0]
-
-    # Equation (22)
-    B = np.zeros([N + 2, 1])
-    B[1] = 1.0
-
-    # Equation (23)
-    C_1 = np.zeros([N + 1, N + 1])
-    C_2 = np.zeros([1, N + 1])
-    C_1[np.diag_indices(N + 1)] = params.sigma
-    C_1[:, 0] = params.eta
-    C_1[0, 1] = params.sigma
-    C = np.concatenate((C_2, C_1))
-
-    # Equation (24)
-    R = np.zeros([N + 2, N + 2])
-    R[1, :] = params.alpha_1 / (2 * N)
-    R[:, 1] = params.alpha_1 / (2 * N)
-    R[1, 1] = 0.0
-    R[0, 1] = -params.alpha_0 / 2
-    R[1, 0] = -params.alpha_0 / 2
-
-    Q = params.gamma / 2
-
-    # calculating A_hat
-    def F_root(H):
-        # Equation (30)
-        H_0, H_1, H_2 = H  # H_2 not used
-
-        # Equation (21)
-        A = (H_1 / N) * np.ones([N + 2, N + 2])
-        A[np.diag_indices(N + 2)] = 1.0 - params.delta + H_1 / N
-        A[:, 0] = H_0
-        A[:, 1] = 0.0
-        A[0, :] = 0.0
-        A[1, :] = 0.0
-        A[0, 0] = 1.0
-        A[1, 1] = 1.0 - params.delta
-
-        lq = quantecon.LQ(Q, R, A, B, C, beta=params.beta)
-        P, F, d = lq.stationary_values()
-        return np.array([F[0][0], F[0][1], F[0][2]]) - np.array([-H[0], 0.0, -H[1] / N])
-
-    H_opt = optimize.root(F_root, H_iv, method="lm", options={"xtol": 1.49012e-8})
-    if not (H_opt.success):
-        sys.exit("H optimization failed to converge.")
-
-    H_hat = H_opt.x
-    if params.verbose:
-        print(f"LQ optima are: {H_hat}")
-    return H_hat[0], H_hat[1]
-
-def gauss_hermite_1D(N):
-    nodes, weights = np.polynomial.hermite.hermgauss(N)
-    nodes *= np.sqrt(2.0)
-    weights *= 1.0 / np.sqrt(np.pi)
-    return nodes, weights
-
-
-def unit_normal_quadrature(dims):
-    l = [gauss_hermite_1D(N) for N in dims]
-    nodes, weights = list(map(list, zip(*l)))
-    nodes = itertools.product(*nodes)
-    weights = itertools.product(*weights)
-    weights = map(np.prod, weights)
-    return np.array(list(nodes)), np.array(list(weights))
-
-
-# Does not support \mu != 0.  Hence only 1D quadrature required
 # Version with deep sets (i.e., network for both Phi and Rho)
 class InvestmentEulerBaseline(pl.LightningModule):
     def __init__(
@@ -134,11 +60,67 @@ class InvestmentEulerBaseline(pl.LightningModule):
 
         # Solves the LQ problem to find the comparison for the baseline
         # used for comparison as well as simulation of datapoints
-        self.H_0, self.H_1 = investment_equilibrium_LQ(1, self.hparams)
+        self.H_0, self.H_1 = self.investment_equilibrium_LQ(1)  # 1 firm is enough for 
 
         # The "simulation_policy" function starts by using the linear_policy
         # to begin the simulation of X_t grid points.  Swaps out later if always_simulate_linear = False
         self.simulation_policy = self.linear_policy
+
+    # Calculates the LQ solution imposing symmetry by hand in the optimization process
+    # Utility for direct comparison when a LQ solution is exact
+    def investment_equilibrium_LQ(self, N):
+        sigma, eta, alpha_0, alpha_1, delta, beta, gamma = self.hparams.sigma, self.hparams.eta, self.hparams.alpha_0, self.hparams.alpha_1, self.hparams.delta, self.hparams.beta, self.hparams.gamma
+        H_iv = [80.0, -0.2, 0.0]
+
+        # Equation (22)
+        B = np.zeros([N + 2, 1])
+        B[1] = 1.0
+
+        # Equation (23)
+        C_1 = np.zeros([N + 1, N + 1])
+        C_2 = np.zeros([1, N + 1])
+        C_1[np.diag_indices(N + 1)] = sigma
+        C_1[:, 0] = eta
+        C_1[0, 1] = sigma
+        C = np.concatenate((C_2, C_1))
+
+        # Equation (24)
+        R = np.zeros([N + 2, N + 2])
+        R[1, :] = alpha_1 / (2 * N)
+        R[:, 1] = alpha_1 / (2 * N)
+        R[1, 1] = 0.0
+        R[0, 1] = -alpha_0 / 2
+        R[1, 0] = -alpha_0 / 2
+
+        Q = gamma / 2
+
+        # calculating A_hat
+        def F_root(H):
+            # Equation (30)
+            H_0, H_1, H_2 = H  # H_2 not used
+
+            # Equation (21)
+            A = (H_1 / N) * np.ones([N + 2, N + 2])
+            A[np.diag_indices(N + 2)] = 1.0 - delta + H_1 / N
+            A[:, 0] = H_0
+            A[:, 1] = 0.0
+            A[0, :] = 0.0
+            A[1, :] = 0.0
+            A[0, 0] = 1.0
+            A[1, 1] = 1.0 - delta
+
+            lq = quantecon.LQ(Q, R, A, B, C, beta=beta)
+            P, F, d = lq.stationary_values()
+            return np.array([F[0][0], F[0][1], F[0][2]]) - np.array([-H[0], 0.0, -H[1] / N])
+
+        H_opt = optimize.root(F_root, H_iv, method="lm", options={"xtol": 1.49012e-8})
+        if not (H_opt.success):
+            sys.exit("H optimization failed to converge.")
+
+        H_hat = H_opt.x
+        if self.hparams.verbose:
+            print(f"LQ optima are: {H_hat}")
+        return H_hat[0], H_hat[1]
 
     # Used for evaluating u(X) given the current network
     def forward(self, X):
@@ -157,11 +139,9 @@ class InvestmentEulerBaseline(pl.LightningModule):
 
     # Model definition
     def p(self, X):
-        # TODO: later can see if a special case to avoid the power for nu = 1 is helpful
         return self.hparams.alpha_0 - self.hparams.alpha_1 * X.mean(2).pow(self.hparams.nu)
 
     # model residuals given a set of states
-    # TODO: This might be cleaned up, but need to be careful with GPUs
     def model_residuals(self, X):
         u_X = self(X)
 
@@ -171,7 +151,7 @@ class InvestmentEulerBaseline(pl.LightningModule):
                 u_X
                 + (1 - self.hparams.delta) * X
                 + self.hparams.sigma * self.expectation_shock_vector
-                + self.hparams.eta * node[0]
+                + self.hparams.eta * node
                 for node in self.quadrature_nodes
             ]
         ).type_as(X)
@@ -298,14 +278,11 @@ class InvestmentEulerBaseline(pl.LightningModule):
     # Simulates all of the data using the state space model
     # At this point, the code is running local to the GPU/etc.
     def setup(self, stage):
-
         # quadrature for use within the expectation calculations
-        quadrature_nodes, quadrature_weights = unit_normal_quadrature(
-            (self.hparams.omega_quadrature_nodes,)
-        )
-        self.quadrature_nodes = torch.tensor(quadrature_nodes, dtype=self.dtype, device=self.device)
+        nodes, weights = quantecon.quad.qnwnorm(self.hparams.omega_quadrature_nodes)
+        self.quadrature_nodes = torch.tensor(nodes, dtype=self.dtype, device=self.device)
         self.quadrature_weights = torch.tensor(
-            quadrature_weights, dtype=self.dtype, device=self.device
+            weights, dtype=self.dtype, device=self.device
         )
 
         # Monte Carlo draw for the expectations, possibly normalizing it
