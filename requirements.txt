@@ -7,3 +7,4 @@ jsonargparse[signatures]
 pandas
 econ-layers >= 0.0.27
 SciPy >= 1.7.1
+quantecon>=0.5
