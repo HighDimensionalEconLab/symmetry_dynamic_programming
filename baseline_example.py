@@ -4,20 +4,24 @@ import pytorch_lightning as pl
 import yaml
 import itertools
 import numpy as np
+import wandb
+import warnings 
+import timeit
 
 from torch import nn
-from jsonargparse import lazy_instance
 from torch.utils.data import DataLoader
 import econ_layers
 from econ_layers.utilities import dict_to_cpu
-from pytorch_lightning.utilities.cli import LightningCLI
+from pytorch_lightning.cli import LightningCLI
 from pathlib import Path
 from copy import deepcopy
 from typing import Optional
-
+from pytorch_lightning.loggers import WandbLogger
 
 # Local files and utilities
 import symmetry_dp.linear_policy_LQ
+
+warnings.filterwarnings(action="ignore", category=UserWarning, message="Due to class_path change from")
 
 # TODO: MOVE TO UTILITIES
 def gauss_hermite_1D(N):
@@ -64,14 +68,14 @@ class InvestmentEulerBaseline(pl.LightningModule):
         X_0_loc: float,
         X_0_scale: float,
         # settings for deep learning approximation
-        rho: nn.Module,
-        phi: nn.Module,
+        rho: torch.nn.Module,
+        phi: torch.nn.Module,
     ):
         super().__init__()
         self.rho = rho
         self.phi = phi
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["rho", "phi"])
 
         # Solves the LQ problem to find the comparison for the baseline
         # used for comparison as well as simulation of datapoints
@@ -80,7 +84,6 @@ class InvestmentEulerBaseline(pl.LightningModule):
         # The "simulation_policy" function starts by using the linear_policy
         # to begin the simulation of X_t grid points.  Swaps out later if always_simulate_linear = False
         self.simulation_policy = self.linear_policy
-        # Note: deferring some construction to the "setup" step because it occurs on the GPU rather than CPU
 
     # Used for evaluating u(X) given the current network
     def forward(self, X):
@@ -368,43 +371,69 @@ class InvestmentEulerBaseline(pl.LightningModule):
         )
 
 
-def save_results(trainer, model, metrics_dict, print_metrics=True):
-    metrics_path = Path(trainer.log_dir) / "metrics.yaml"
-    if print_metrics:
-        print(metrics_dict)
+def log_and_save(
+    trainer,
+    model,
+    train_time,
+    print_metrics=False,
+    save_metrics=False,
+    save_test_results=False,
+    save_path=None,  # or a path
+):
+    # Setup to be Wanddb centric for summary statistics/etc.
+    if type(trainer.logger) is WandbLogger:
+        # The wandb calculated runtime has too many fixed costs.
+        trainer.logger.experiment.log({"train_time": train_time})
 
-    with open(metrics_path, "w") as fp:
-        yaml.dump(metrics_dict, fp)
+        # save the summary statistics in a file
+        if save_metrics and save_path is not None:
+            metrics_path = Path(save_path) / "metrics.yaml"
+            with open(metrics_path, "w") as fp:
+                yaml.dump(dict(cli.trainer.logger.experiment.summary), fp)
 
-    # Store the test_results field on model if it exists
-    if hasattr(model, "test_results"):
-        model.test_results.to_csv(Path(trainer.log_dir) / "test_results.csv", index=False)
+        if print_metrics:
+            print(dict(cli.trainer.logger.experiment.summary))
 
+        # Store the test_results field from model if it exists
+        if hasattr(model, "test_results"):
+            trainer.logger.log_text(
+                key="test_results", dataframe=trainer.model.test_results
+            )  # Saves on wandb for querying later
+            if save_test_results and save_path is not None:
+                model.test_results.to_csv(
+                    Path(save_path) / "test_results.csv", index=False
+                )
+    else:
+        # otherwise just conditionally save test_results
+        if save_test_results and save_path is not None and hasattr(model, "test_results"):
+            model.test_results.to_csv(Path(save_path) / "test_results.csv", index=False)
 
-def cli_main():
+if __name__ == "__main__":
     cli = LightningCLI(
         InvestmentEulerBaseline,
-        run=False,
         seed_everything_default=123,
-        save_config_overwrite=True,
+        run=False,
+        save_config_callback=None,  # turn this on to save the full config file rather than just having it uploaded
         parser_kwargs={"default_config_files": ["baseline_example_defaults.yaml"]},
+        save_config_kwargs={"save_config_overwrite": True}
     )
 
     # Fit the model
+    start = timeit.default_timer()
     cli.trainer.fit(cli.model)
     metrics_dict = dict_to_cpu(cli.trainer.logged_metrics.copy())
+    train_time = timeit.default_timer() - start
 
-    # Generate test data
+    # Check test data
     cli.trainer.test(cli.model)
-    metrics_dict.update(dict_to_cpu(cli.trainer.logged_metrics))
-
-    # print results
-    if cli.model.hparams.verbose:
-        print(cli.model.test_results)
-
-    # save results
-    save_results(cli.trainer, cli.model, metrics_dict)
-
-
-if __name__ == "__main__":
-    cli_main()
+    
+    # Add additional calculations to the log and save files
+    log_and_save(
+        cli.trainer,
+        cli.model,
+        train_time,
+        print_metrics=False,
+        save_metrics=False,
+        save_test_results=False,
+        save_path=cli.trainer.log_dir,
+    )

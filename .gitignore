@@ -133,3 +133,8 @@ dmypy.json
 .vscode/settings.json
 config.yaml
 checkpoints/*
+./wand
+symmetry_examples
+metrics.yaml
+test_results.csv
+wandb/

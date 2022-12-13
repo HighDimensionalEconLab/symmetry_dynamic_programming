@@ -4,11 +4,21 @@ trainer:
   max_time: 00:00:15:00
   precision: 32
   num_sanity_val_steps: 0
+  logger:
+    class_path: pytorch_lightning.loggers.WandbLogger
+    init_args:
+      offline: true # set to true to not upload during testing
+      log_model: false # set to true to save the model at the end
+      name: null # can set name or have it automatically generated
+      project: symmetry_examples
+      group: null # can group related runs
+      tags:
+        - basic_example
   callbacks:
     - class_path: pytorch_lightning.callbacks.LearningRateMonitor
       init_args:
         logging_interval: step
-        log_momentum: true
+        log_momentum: false
     - class_path: pytorch_lightning.callbacks.ModelCheckpoint
       init_args:
         filename: best
@@ -27,12 +37,13 @@ trainer:
         mode: min
         check_finite: true
         divergence_threshold: 100000 # stops if larger
-        stopping_threshold: 1.0e-6
+        stopping_threshold: 1.0e-6   # typically the binding stopping threshold
 optimizer:
   class_path: torch.optim.Adam
   init_args:
     lr: 1.0e-3
-# Temporarily setting this scheduler, but it isn't tuned
+
+# Scheduler currently not tuned
 lr_scheduler:
   class_path: torch.optim.lr_scheduler.StepLR
   init_args:
