@@ -1,0 +1,40 @@
+program: investment_euler.py
+project: symmetry_dp_examples
+method: bayes
+metric:
+  name: train_time # test_loss
+  goal: minimize
+# early_terminate:
+#   type: hyperband
+#   max_iter: 27
+#   s: 2
+parameters:
+  # Fix parameters here:
+  trainer.logger.offline:
+    value: false
+  trainer.max_time:
+    value: 00:00:03:00  # these tests shouldn't take more than 2 minutes
+  # Provide distributions and variations here
+  optimizer.lr:
+    values: [0.1, 0.01, 0.001, 0.0001]
+  lr_scheduler.step_size:
+    values: [5, 10, 50]
+  lr_scheduler.gamma:
+    values: [0.5, 0.8, 0.9]
+  model.phi.layers:
+    values: [1, 2, 3, 4]
+  model.rho.layers:
+    values: [1, 2, 3, 4]
+  model.phi.hidden_dim:
+    values: [64, 128, 256]
+  model.rho.hidden_dim:
+    values: [64, 128, 256]
+  model.phi.hidden_bias:
+    values: [true, false]
+  model.rho.hidden_bias:
+    values: [true, false]
+  model.train_trajectories:
+    values: [2, 4, 8, 16]
+  model.batch_size:
+    values: [16, 32, 64]
+    

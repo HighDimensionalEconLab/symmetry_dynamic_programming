@@ -14,7 +14,7 @@ pip install -r requirements.txt
 ```
 If you are in VS Code, opening its [integrated terminal](https://code.visualstudio.com/docs/editor/integrated-terminal) within the project window will start it in the correct location.
 
-If pytorch is not working, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cudatoolkit=10.2 -c pytorch ` or something similar, and then retrying the dependencies installation.
+If pytorch is not working, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cpuonly -c pytorch ` or something similar, and then retrying the dependencies installation.  GPUs are not required for these experiments.
 
 ## Jupyter Notebook for Exploration
 
@@ -25,7 +25,7 @@ You can load the Jupyter notebook [baseline_example.ipynb](baseline_example.ipyn
 ## CLI Usage
 There is a command-line interface to solve for the equilibrium given various model and neural network parameters.  This is especially convenient for deploying on the cloud or when running in parallel.
 
-The default values of all parameters is given by the [investment_euler_default.yaml](investment_euler_default.yaml). You can override these by passing in a different YAML file, or by passing in the parameters on the commandline.
+The default values of all parameters is given by [investment_euler_default.yaml](investment_euler_default.yaml). You can override these by passing in a different YAML file, or by passing in the parameters on the commandline.
 
 To use this, in a console at the root of this project, you can do things such as the following.
 ```bash
@@ -48,8 +48,28 @@ python investment_euler.py --trainer.max_epochs=5 --model.nu=1.05
 
 ## Logs and Hyperparameter Tuning
 
-TBD
+Central to deep learning is the need to tuning hyperparameters.  See [W&B](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration) for more details, including distributions.
 
+To use, first create an account with [Weights and Biases](https://wandb.ai/) then, assuming you have installed the packages above, ensure you have logged in,
+```bash
+wandb login
+```
+
+To run a new sweep, in a terminal run
+```bash
+wandb sweep sweep.yaml
+```
+This will create a new sweep on the server.  It will give you a URL to the sweep, which you can open in a browser.  You can also see the sweep in your [W&B dashboard](https://wandb.ai/home).  You will need the returned ID as well.
+
+This doesn't create any "agents".  To do that, take the `<sweep_id>` that was returned and run
+```bash
+wandb agent <sweep_id>
+```
+Or to only execute a fixed number of experiments on that agent, give it a count (e.g. `wandb agent --count 10 <sweep_id>`).
+
+You can then login to the server and run that same line, with the provided sweep_id, to execute the same experiments on a different machine.
+
+See [TODO](TODO) for an example of one of these sweeps.
 <!-- 
 The output of these prints to the console, but is also saved in a folder named `lightning_logs` for the particular experiment.  This includes
 - `config.yaml` which lets you see the full set of parameters used in the experiment
