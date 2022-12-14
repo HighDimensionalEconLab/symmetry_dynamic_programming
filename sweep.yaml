@@ -2,7 +2,9 @@ program: investment_euler.py
 project: symmetry_dp_examples
 method: bayes
 metric:
-  name: train_time # test_loss
+  # e.g. test_loss or train_time if val_loss < early stopping
+  # See the investment_euler.py log_and_save
+  name: hpo_objective 
   goal: minimize
 # early_terminate:
 #   type: hyperband

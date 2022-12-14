@@ -2,10 +2,11 @@ import pandas as pd
 import torch
 import pytorch_lightning as pl
 import yaml
+import math
 import itertools
 import numpy as np
 import wandb
-import warnings 
+import warnings
 import timeit
 import quantecon
 import econ_layers
@@ -20,7 +21,9 @@ from copy import deepcopy
 from typing import Optional
 from pytorch_lightning.loggers import WandbLogger
 
-warnings.filterwarnings(action="ignore", category=UserWarning, message="Due to class_path change from")
+warnings.filterwarnings(
+    action="ignore", category=UserWarning, message="Due to class_path change from"
+)
 
 # Version with deep sets (i.e., network for both Phi and Rho)
 class InvestmentEuler(pl.LightningModule):
@@ -35,8 +38,13 @@ class InvestmentEuler(pl.LightningModule):
         delta: float,
         eta: float,
         nu: float,
-        # parameters for method
+        # some general configuration
         verbose: bool,
+        hpo_objective: str,
+        print_metrics: bool,
+        save_metrics: bool,
+        save_test_results: bool,
+        # parameters for method
         omega_quadrature_nodes: int,
         normalize_shock_vector: bool,
         train_trajectories: int,
@@ -60,7 +68,7 @@ class InvestmentEuler(pl.LightningModule):
 
         # Solves the LQ problem to find the comparison for the baseline
         # used for comparison as well as simulation of datapoints
-        self.H_0, self.H_1 = self.investment_equilibrium_LQ(1)  # 1 firm is enough for 
+        self.H_0, self.H_1 = self.investment_equilibrium_LQ(1)  # 1 firm is enough for
 
         # The "simulation_policy" function starts by using the linear_policy
         # to begin the simulation of X_t grid points.  Swaps out later if always_simulate_linear = False
@@ -69,7 +77,15 @@ class InvestmentEuler(pl.LightningModule):
     # Calculates the LQ solution imposing symmetry by hand in the optimization process
     # Utility for direct comparison when a LQ solution is exact
     def investment_equilibrium_LQ(self, N):
-        sigma, eta, alpha_0, alpha_1, delta, beta, gamma = self.hparams.sigma, self.hparams.eta, self.hparams.alpha_0, self.hparams.alpha_1, self.hparams.delta, self.hparams.beta, self.hparams.gamma
+        sigma, eta, alpha_0, alpha_1, delta, beta, gamma = (
+            self.hparams.sigma,
+            self.hparams.eta,
+            self.hparams.alpha_0,
+            self.hparams.alpha_1,
+            self.hparams.delta,
+            self.hparams.beta,
+            self.hparams.gamma,
+        )
         H_iv = [80.0, -0.2, 0.0]
 
         # Equation (22)
@@ -180,7 +196,7 @@ class InvestmentEuler(pl.LightningModule):
     def training_step(self, X, batch_idx):
         residuals = self.model_residuals(X)
 
-        loss = (residuals ** 2).sum() / len(residuals)
+        loss = (residuals**2).sum() / len(residuals)
 
         self.log("train_loss", loss)
         return loss
@@ -188,7 +204,7 @@ class InvestmentEuler(pl.LightningModule):
     def validation_step(self, X, batch_idx):
         residuals = self.model_residuals(X)
 
-        loss = (residuals ** 2).sum() / len(residuals)
+        loss = (residuals**2).sum() / len(residuals)
 
         self.log("val_loss", loss, prog_bar=True)
 
@@ -205,7 +221,7 @@ class InvestmentEuler(pl.LightningModule):
 
         X = batch["X"]
         residuals = self.model_residuals(X)
-        loss = (residuals ** 2).sum() / len(residuals)
+        loss = (residuals**2).sum() / len(residuals)
 
         self.log("test_loss", loss, prog_bar=True)
 
@@ -281,9 +297,7 @@ class InvestmentEuler(pl.LightningModule):
         # quadrature for use within the expectation calculations
         nodes, weights = quantecon.quad.qnwnorm(self.hparams.omega_quadrature_nodes)
         self.quadrature_nodes = torch.tensor(nodes, dtype=self.dtype, device=self.device)
-        self.quadrature_weights = torch.tensor(
-            weights, dtype=self.dtype, device=self.device
-        )
+        self.quadrature_weights = torch.tensor(weights, dtype=self.dtype, device=self.device)
 
         # Monte Carlo draw for the expectations, possibly normalizing it
         vec = torch.randn(1, self.hparams.N, device=self.device, dtype=self.dtype)
@@ -346,9 +360,7 @@ class InvestmentEuler(pl.LightningModule):
                 )  # use internal neural network.  TODO: Check if forward is correct?
 
         if stage == "test" or stage is None:
-
             test_trajectories = self.hparams.test_trajectories
-
             self.omega_test = torch.randn(
                 self.hparams.test_trajectories,
                 self.hparams.T,
@@ -403,27 +415,38 @@ class InvestmentEuler(pl.LightningModule):
         )
 
 
-def log_and_save(
-    trainer,
-    model,
-    train_time,
-    print_metrics=False,
-    save_metrics=False,
-    save_test_results=False,
-    save_path=None,  # or a path
-):
-    # Setup to be Wanddb centric for summary statistics/etc.
+def log_and_save(trainer, model, train_time):
+    save_path = trainer.log_dir
+
+    # Setup to be wanddb centric for summary statistics/etc.
     if type(trainer.logger) is WandbLogger:
-        # The wandb calculated runtime has too many fixed costs.
+        # The calculated runtime with pytorch lightning + wandb has many fixed costs which throw off performance comparisons
         trainer.logger.experiment.log({"train_time": train_time})
 
+        # Count and log the number of parameters with are trained in the neural network
+        trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        trainer.logger.experiment.log({"trainable_parameters": trainable_parameters})
+
+        # Set objective for hyperparameter optimization.  Only log if successful (i.e, val_loss < stopping_threshold)
+        if hasattr(cli.trainer, "early_stopping_callback"):
+            hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
+                model.hparams.hpo_objective
+            ]
+            if (
+                dict(cli.trainer.logger.experiment.summary)["val_loss"]
+                < cli.trainer.early_stopping_callback.stopping_threshold
+            ):
+                trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
+            else:
+                trainer.logger.experiment.log({"hpo_objective": math.nan})
+
         # save the summary statistics in a file
-        if save_metrics and save_path is not None:
+        if model.hparams.save_metrics and save_path is not None:
             metrics_path = Path(save_path) / "metrics.yaml"
             with open(metrics_path, "w") as fp:
                 yaml.dump(dict(cli.trainer.logger.experiment.summary), fp)
 
-        if print_metrics:
+        if model.hparams.print_metrics:
             print(dict(cli.trainer.logger.experiment.summary))
 
         # Store the test_results field from model if it exists
@@ -431,14 +454,18 @@ def log_and_save(
             trainer.logger.log_text(
                 key="test_results", dataframe=trainer.model.test_results
             )  # Saves on wandb for querying later
-            if save_test_results and save_path is not None:
-                model.test_results.to_csv(
-                    Path(save_path) / "test_results.csv", index=False
-                )
+            if model.hparams.save_test_results and save_path is not None:
+                model.test_results.to_csv(Path(save_path) / "test_results.csv", index=False)
+
     else:
         # otherwise just conditionally save test_results
-        if save_test_results and save_path is not None and hasattr(model, "test_results"):
+        if (
+            model.hparams.save_test_results
+            and save_path is not None
+            and hasattr(model, "test_results")
+        ):
             model.test_results.to_csv(Path(save_path) / "test_results.csv", index=False)
+
 
 if __name__ == "__main__":
     cli = LightningCLI(
@@ -447,25 +474,16 @@ if __name__ == "__main__":
         run=False,
         save_config_callback=None,  # turn this on to save the full config file rather than just having it uploaded
         parser_kwargs={"default_config_files": ["investment_euler_defaults.yaml"]},
-        save_config_kwargs={"save_config_overwrite": True}
+        save_config_kwargs={"save_config_overwrite": True},
     )
 
-    # Fit the model
+    # Fit the model.  Separating training time for plotting
     start = timeit.default_timer()
     cli.trainer.fit(cli.model)
-    metrics_dict = dict_to_cpu(cli.trainer.logged_metrics.copy())
     train_time = timeit.default_timer() - start
 
     # Check test data
     cli.trainer.test(cli.model)
-    
-    # Add additional calculations to the log and save files
-    log_and_save(
-        cli.trainer,
-        cli.model,
-        train_time,
-        print_metrics=False,
-        save_metrics=False,
-        save_test_results=False,
-        save_path=cli.trainer.log_dir,
-    )
+
+    # Add additional calculations such as HPO objective to the log and save files
+    log_and_save(cli.trainer, cli.model, train_time)

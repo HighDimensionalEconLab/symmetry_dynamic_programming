@@ -67,8 +67,15 @@ model:
   eta: 0.001
   nu: 1.0
 
-  # Settings for method
+  # Settings for output
   verbose: false
+  hpo_objective: test_loss
+  print_metrics: false
+  save_metrics: false
+  save_test_results: false
+
+
+  # Settings for method
   omega_quadrature_nodes: 7
   normalize_shock_vector: true
   always_simulate_linear: false
