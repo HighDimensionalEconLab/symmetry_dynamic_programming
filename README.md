@@ -1,7 +1,7 @@
 # Symmetry and Dynamic Programming
 Source for "Exploiting Symmetry in High-Dimensional Dynamic Programming"
 
-## Installing and Testing
+## Installing
 
 1. Ensure you have installed Python.  For example, using [Anaconda](https://www.anaconda.com/products/individual)
 2. Recommended but not required: Install [VS Code](https://code.visualstudio.com/) along with its [Python Extension](https://code.visualstudio.com/docs/languages/python)
@@ -18,33 +18,39 @@ If pytorch is not working, consider [installing manually](https://pytorch.org/ge
 
 ## Jupyter Notebook for Exploration
 
-You can load the Jupyter notebook [baseline_example.ipynb](baseline_example.ipynb) directly in VS Code or on the command-line with `jupyter lab` run in the local directory.  This notebook loads the `baseline_example.py` and provides a utility to explore it in the notebook instead of on the command-line.
+You can load the Jupyter notebook [baseline_example.ipynb](baseline_example.ipynb) directly in VS Code or on the command-line with `jupyter lab` run in the local directory.  This notebook loads the `investment_euler.py` and provides utilities to examine the output without using it on the commandline.
 
 
 
 ## CLI Usage
-There is a command-line interface to solve for the equilibrium given various model and neural network parameters.  This is especially convenient for deploying on the cloud (e.g. using https://grid.ai) when running in parallel.
+There is a command-line interface to solve for the equilibrium given various model and neural network parameters.  This is especially convenient for deploying on the cloud or when running in parallel.
+
+The default values of all parameters is given by the [investment_euler_default.yaml](investment_euler_default.yaml). You can override these by passing in a different YAML file, or by passing in the parameters on the commandline.
 
 To use this, in a console at the root of this project, you can do things such as the following.
 ```bash
-python baseline_example.py --trainer.max_epochs 5
+python investment_euler.py --trainer.max_epochs=5
 ```
-Or to change the neural network architecture, you could try things such as 
+Or to change the neural network architecture, you could try things such as increasing the `L` of the model
 ```bash
-python baseline_example.py --trainer.max_epochs 5 --model.L 8
+python investment_euler.py --trainer.max_epochs=2 --model.rho.n_in=8 --model.phi.n_out=8 
 ```
+Or changing the number of layers
 ```bash
-python baseline_example.py --trainer.max_epochs 5 --model.phi_layers 1
+python investment_euler.py --trainer.max_epochs=5 --model.phi.layers=1
 ```
 
 To change the economic variables such nonlinearity in prices, you could try things such as
 
 ```bash
-python baseline_example.py --trainer.max_epochs 5 --model.nu 1.05
+python investment_euler.py --trainer.max_epochs=5 --model.nu=1.05
 ```
 
-To see the list of all possible options, see `python baseline_example.py --help`
+## Logs and Hyperparameter Tuning
 
+TBD
+
+<!-- 
 The output of these prints to the console, but is also saved in a folder named `lightning_logs` for the particular experiment.  This includes
 - `config.yaml` which lets you see the full set of parameters used in the experiment
 - `metrics.yaml` for a summary of the results
@@ -55,4 +61,4 @@ Finally, tensorboard is an important tool to examine the convergence of machine 
 ```
 tensorboard --logdir .
 ```
-It will give you a local URL (e.g., http://localhost:6006/ ) to analyze your results.
+It will give you a local URL (e.g., http://localhost:6006/ ) to analyze your results. -->
