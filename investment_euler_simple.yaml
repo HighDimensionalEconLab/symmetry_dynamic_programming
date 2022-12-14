@@ -4,31 +4,8 @@ trainer:
   max_time: 00:00:15:00
   precision: 32
   num_sanity_val_steps: 0
-  logger:
-    class_path: pytorch_lightning.loggers.WandbLogger
-    init_args:
-      offline: true # set to true to not upload during testing
-      log_model: false # set to true to save the model at the end
-      name: null # can set name or have it automatically generated
-      project: symmetry_examples
-      group: null # can group related runs
-      tags:
-        - basic_example
+  logger: null
   callbacks:
-    - class_path: pytorch_lightning.callbacks.LearningRateMonitor
-      init_args:
-        logging_interval: step
-        log_momentum: false
-    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
-      init_args:
-        filename: best
-        monitor: val_loss
-        verbose: false
-        save_last: true
-        save_top_k: 1
-        save_weights_only: true
-        mode: min
-        auto_insert_metric_name: true
     - class_path: pytorch_lightning.callbacks.EarlyStopping
       init_args:
         monitor: val_loss
@@ -68,7 +45,7 @@ model:
   nu: 1.0
 
   # Settings for method
-  verbose: true
+  verbose: false
   omega_quadrature_nodes: 7
   normalize_shock_vector: true
   always_simulate_linear: false

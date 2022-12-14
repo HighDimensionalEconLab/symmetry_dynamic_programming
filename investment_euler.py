@@ -23,7 +23,7 @@ from pytorch_lightning.loggers import WandbLogger
 warnings.filterwarnings(action="ignore", category=UserWarning, message="Due to class_path change from")
 
 # Version with deep sets (i.e., network for both Phi and Rho)
-class InvestmentEulerBaseline(pl.LightningModule):
+class InvestmentEuler(pl.LightningModule):
     def __init__(
         self,
         N: int,
@@ -442,11 +442,11 @@ def log_and_save(
 
 if __name__ == "__main__":
     cli = LightningCLI(
-        InvestmentEulerBaseline,
+        InvestmentEuler,
         seed_everything_default=123,
         run=False,
         save_config_callback=None,  # turn this on to save the full config file rather than just having it uploaded
-        parser_kwargs={"default_config_files": ["baseline_example_defaults.yaml"]},
+        parser_kwargs={"default_config_files": ["investment_euler_defaults.yaml"]},
         save_config_kwargs={"save_config_overwrite": True}
     )
 
