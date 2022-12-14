@@ -1,22 +1,23 @@
 program: investment_euler.py
 project: symmetry_dp_examples
+description: HPO for train_time to early stopping criteria on val_loss
 method: bayes
+tags: 
 metric:
-  # e.g. test_loss or train_time if val_loss < early stopping
   # See the investment_euler.py log_and_save
   name: hpo_objective 
   goal: minimize
-# early_terminate:
-#   type: hyperband
-#   max_iter: 27
-#   s: 2
+  # early_terminate:  not necessary here given the trainer.max_time
 parameters:
   # Fix parameters here:
   trainer.logger.offline:
-    value: false
+    value: false # log online for W&B optimization
   trainer.max_time:
-    value: 00:00:03:00  # these tests shouldn't take more than 2 minutes
-  # Provide distributions and variations here
+    value: 00:00:03:00  # these tests shouldn't take more than 2-3 minutes
+  model.hpo_objective_name:
+    value: train_time # sets the objective.  Only logs if val_loss < stopping threshold
+
+  # Provide distributions and variations for optimizer
   optimizer.lr:
     values: [0.1, 0.01, 0.001, 0.0001]
   lr_scheduler.step_size:

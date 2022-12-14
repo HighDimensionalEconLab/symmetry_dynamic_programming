@@ -46,7 +46,7 @@ model:
 
   # Settings for output
   verbose: false
-  hpo_objective: test_loss
+  hpo_objective_name: test_loss
   print_metrics: false
   save_metrics: false
   save_test_results: false

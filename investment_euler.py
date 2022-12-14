@@ -40,7 +40,7 @@ class InvestmentEuler(pl.LightningModule):
         nu: float,
         # some general configuration
         verbose: bool,
-        hpo_objective: str,
+        hpo_objective_name: str,
         print_metrics: bool,
         save_metrics: bool,
         save_test_results: bool,
@@ -430,7 +430,7 @@ def log_and_save(trainer, model, train_time):
         # Set objective for hyperparameter optimization.  Only log if successful (i.e, val_loss < stopping_threshold)
         if hasattr(cli.trainer, "early_stopping_callback"):
             hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
-                model.hparams.hpo_objective
+                model.hparams.hpo_objective_name
             ]
             if (
                 dict(cli.trainer.logger.experiment.summary)["val_loss"]

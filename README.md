@@ -55,9 +55,9 @@ To use, first create an account with [Weights and Biases](https://wandb.ai/) the
 wandb login
 ```
 
-To run a new sweep, in a terminal run
+For our example sweep, in a terminal run
 ```bash
-wandb sweep sweep.yaml
+wandb sweep train_time_sweep.yaml
 ```
 This will create a new sweep on the server.  It will give you a URL to the sweep, which you can open in a browser.  You can also see the sweep in your [W&B dashboard](https://wandb.ai/home).  You will need the returned ID as well.
 
@@ -70,15 +70,3 @@ Or to only execute a fixed number of experiments on that agent, give it a count 
 You can then login to the server and run that same line, with the provided sweep_id, to execute the same experiments on a different machine.
 
 See [TODO](TODO) for an example of one of these sweeps.
-<!-- 
-The output of these prints to the console, but is also saved in a folder named `lightning_logs` for the particular experiment.  This includes
-- `config.yaml` which lets you see the full set of parameters used in the experiment
-- `metrics.yaml` for a summary of the results
-- `test_results.csv` which includes the full on the "test" trajectories.  That CSV file can be loaded for plotting
-- `checkpoints/best.ckpt` which is the results of the training process.  See [here](https://pytorch-lightning.readthedocs.io/en/latest/common/weights_loading.html#checkpoint-loading) for more details on loading checkpoints.  For example, `model = InvestmentEulerBaseline.load_from_checkpoint(PATH)`
-
-Finally, tensorboard is an important tool to examine the convergence of machine learning models when trying to find the appropriate parameters.  After executing an experiment or two, go into your console and type
-```
-tensorboard --logdir .
-```
-It will give you a local URL (e.g., http://localhost:6006/ ) to analyze your results. -->
