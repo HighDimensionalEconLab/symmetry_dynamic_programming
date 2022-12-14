@@ -24,8 +24,8 @@ optimizer:
 lr_scheduler:
   class_path: torch.optim.lr_scheduler.StepLR
   init_args:
-    step_size: 100
-    gamma: 0.1
+    step_size: 50 # number of epochs
+    gamma: 0.8
 # lr_scheduler:
 #   class_path: torch.optim.lr_scheduler.ReduceLROnPlateau
 #   init_args:
@@ -58,7 +58,7 @@ model:
   train_trajectories: 16
   val_trajectories: 8
   test_trajectories: 32
-  batch_size: 32 # set to 0 for full dataset
+  batch_size: 16 # set to 0 for full dataset
   shuffle_training: true
   T: 63
   X_0_loc: 0.9
@@ -72,7 +72,7 @@ model:
       n_in: 4 # must match phi.n_out
       n_out: 1
       layers: 4
-      hidden_dim: 128
+      hidden_dim: 256
       hidden_bias: true
       last_bias: true
   # phi
@@ -81,7 +81,7 @@ model:
     init_args:
       n_in: 1 
       n_out: 4 # must match rho.n_in
-      layers: 2
+      layers: 1
       hidden_dim: 128 
-      hidden_bias: true
+      hidden_bias: false
       last_bias: true 
