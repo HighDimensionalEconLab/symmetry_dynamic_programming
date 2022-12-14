@@ -1,6 +1,8 @@
 # Symmetry and Dynamic Programming
 Source for "Exploiting Symmetry in High-Dimensional Dynamic Programming"
 
+**Warning**: See the HyperParameter Tuning section below for more details on robustness checks, tuning, and examples using Weights and Biases.  Hyperparameter optimization is an essential part of the machine learning workflow, and it rarely not make sense to check for robustness without considering its role.  Furthermore, manual tweaking of hyperparameters is slow and error prone - which has led to a variety of ML tools to automate the process and visualization.
+
 ## Installing
 
 1. Ensure you have installed Python.  For example, using [Anaconda](https://www.anaconda.com/products/individual)
@@ -43,18 +45,27 @@ python investment_euler.py --trainer.max_epochs=5 --model.phi.layers=1
 To change the economic variables such nonlinearity in prices, you could try things such as
 
 ```bash
-python investment_euler.py --trainer.max_epochs=5 --model.nu=1.05
+python investment_euler.py --trainer.max_epochs=5 --model.nu=1.1
 ```
 
-## Logs and Hyperparameter Tuning
+Note that for the `nu != 1` there is no closed form to check against.
 
-Central to deep learning is the need to tuning hyperparameters.  See [W&B](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration) for more details, including distributions.
+# Hyperparameter Tuning
+
+Central to deep learning is the need to tuning hyperparameters.  It rarely makes sense to check for robustness of a solution to changes in the neural network structure and hyperparameters.
+
+
+## Weights and Biases
+One tool for managing parameters and hyperparameter optimization is [Weights and Biases](https://wandb.ai/).  This is a free service for academic use.  It provides a dashboard to track experiments, and a way to run hyperparameter optimization sweeps.
+
 
 To use, first create an account with [Weights and Biases](https://wandb.ai/) then, assuming you have installed the packages above, ensure you have logged in,
 ```bash
 wandb login
 ```
 
+The [train_time_sweep.yaml](train_time_sweep.yaml) file contains a list of parameters defining the sweeep of interest.  See [W&B docs](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration) for more details, including how to handle distributions.
+  probv
 For our example sweep, in a terminal run
 ```bash
 wandb sweep train_time_sweep.yaml
@@ -68,5 +79,14 @@ wandb agent <sweep_id>
 Or to only execute a fixed number of experiments on that agent, give it a count (e.g. `wandb agent --count 10 <sweep_id>`).
 
 You can then login to the server and run that same line, with the provided sweep_id, to execute the same experiments on a different machine.
+## Example Results
+See [W&B Training Time Sweep Results](https://wandb.ai/highdimensionaleconlab/symmetry_dp_examples/sweeps/ie7xdfv8) for an example.  A few useful features of this tool include,
 
-See [TODO](TODO) for an example of one of these sweeps.
+![Visualization 1](images/hpo_output_1.png)
+
+This provides a standard visualization to evaluate many different hyperparameters, listed along the top and each with its own y-axis.  The color matches the objective of the HPO sweep, where the value is shown on the rightmost side.
+
+
+![Visualization 2](images/hpo_output_2.png)
+
+Another visualization is to look at the correlation between the hyperparameter and the objective, as shown above, which summarizes the relative importance.
