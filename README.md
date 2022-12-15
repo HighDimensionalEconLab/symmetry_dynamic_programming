@@ -44,9 +44,7 @@ Note that for the `nu != 1` there is no closed form to check against.
 
 # Hyperparameter Tuning
 
-Central to deep learning is the need to tuning hyperparameters.  It rarely makes sense to check for robustness of a solution to changes in the neural network structure and hyperparameters.
-
-
+Central to deep learning is the need to tuning hyperparameters.  A variety of tooling for ML and deep-learning is there to help, mostly under the category of "ML DevOps".  This includes tools for hyperparameter optimization, model versioning, managing results,  model deployment, and running on clusters/clouds.  Here we will only show one of these tools, which provides simple HPO and outstanding visualization.
 ## Weights and Biases
 One tool for managing parameters and hyperparameter optimization is [Weights and Biases](https://wandb.ai/).  This is a free service for academic use.  It provides a dashboard to track experiments, and a way to run hyperparameter optimization sweeps.
 
