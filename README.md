@@ -80,7 +80,7 @@ Or to only execute a fixed number of experiments on that agent, give it a count 
 
 You can then login to the server and run that same line, with the provided sweep_id, to execute the same experiments on a different machine.
 ## Example Results
-See [W&B Training Time Sweep Results](https://wandb.ai/highdimensionaleconlab/symmetry_dp_examples/sweeps/ie7xdfv8) for an example.  A few useful features of this tool include,
+See [W&B Training Time Sweep Results](https://wandb.ai/highdimensionaleconlab/symmetry_dp_examples/sweeps/ie7xdfv8?workspace=user-) for an example.  A few useful features of this tool include,
 
 ![Visualization 1](images/hpo_output_1.png)
 
