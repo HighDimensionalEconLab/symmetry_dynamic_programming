@@ -1,7 +1,9 @@
 # Symmetry and Dynamic Programming
 Source for "Exploiting Symmetry in High-Dimensional Dynamic Programming"
 
-**Warning**: See the HyperParameter Tuning section below for more details on robustness checks, tuning, and examples using Weights and Biases.  Hyperparameter optimization is an essential part of the machine learning workflow, and it rarely not make sense to check for robustness without considering its role.  Furthermore, manual tweaking of hyperparameters is slow and error prone - which has led to a variety of ML tools to automate the process and visualization.
+**Warning**: See the [HyperParameter Tuning section](#hyperparameter-tuning) for more details on robustness checks, tuning, and examples using [Weights and Biases](wandb.ai).  Hyperparameter optimization is an essential part of the machine learning workflow, and it rarely not make sense to check for robustness without considering how/when a new HPO process is required.
+
+Since manual tweaking of hyperparameters is slow and error prone, a variety of ML tools to automate the process and visualization.  The primary [investment_euler.py](investment_euler.py) and related code is provided as an expanding of this tooling.
 
 ## Installing
 
