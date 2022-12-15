@@ -5,24 +5,14 @@ Source for "Exploiting Symmetry in High-Dimensional Dynamic Programming"
 
 ## Installing
 
-1. Ensure you have installed Python.  For example, using [Anaconda](https://www.anaconda.com/products/individual)
-2. Recommended but not required: Install [VS Code](https://code.visualstudio.com/) along with its [Python Extension](https://code.visualstudio.com/docs/languages/python)
-3. Clone this repository
-  - Recommended: With VS Code, go `<Shift-Control-P>` to open up the commandbar, then choose `Git Clone`, and use the URL `https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`.  That will give you a full environment to work with.
-  - Alternatively, you can clone it with git installed `git clone https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`
-4. Install dependencies.  Consider a conda [virtual environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).  With a terminal in that cloned folder,
-```bash
-pip install -r requirements.txt
-```
-If you are in VS Code, opening its [integrated terminal](https://code.visualstudio.com/docs/editor/integrated-terminal) within the project window will start it in the correct location.
+### Quick Installation Instructions
+Within a python environment, clone this repository with git and execute `pip install -r requirements.txt`.
 
-If pytorch is not working, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cpuonly -c pytorch ` or something similar, and then retrying the dependencies installation.  GPUs are not required for these experiments.
+See more complete instructions below in the [detailed installation](#detailed-installation-instructions) section.
 
 ## Jupyter Notebook for Exploration
 
 You can load the Jupyter notebook [baseline_example.ipynb](baseline_example.ipynb) directly in VS Code or on the command-line with `jupyter lab` run in the local directory.  This notebook loads the `investment_euler.py` and provides utilities to examine the output without using it on the commandline.
-
-
 
 ## CLI Usage
 There is a command-line interface to solve for the equilibrium given various model and neural network parameters.  This is especially convenient for deploying on the cloud or when running in parallel.
@@ -90,3 +80,26 @@ This provides a standard visualization to evaluate many different hyperparameter
 ![Visualization 2](images/hpo_output_2.png)
 
 Another visualization is to look at the correlation between the hyperparameter and the objective, as shown above, which summarizes the relative importance.
+
+
+# Detailed Installation Instructions
+For users with less experience using python, conda, and VS Code, the following provides more details.
+
+1. Ensure you have installed Python.  For example, using [Anaconda](https://www.anaconda.com/products/individual)
+2. Recommended but not required: Install [VS Code](https://code.visualstudio.com/) along with its [Python Extension](https://code.visualstudio.com/docs/languages/python)
+3. Clone this repository
+   - Recommended: With VS Code, go `<Shift-Control-P>` to open up the commandbar, then choose `Git Clone`, and use the URL `https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`.  That will give you a full environment to work with.
+   - Alternatively, you can clone it with git installed `git clone https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`
+4. (Optional) create a conda [virtual environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
+    ```bash
+    conda create -n symmetry_dp python=3.9
+    conda activate symmetry_dp
+    ```
+    - In VS Code, you can then do `<Shift-Control-P>` to open up the commandbar, then choose `> Python: Select Interpreter`, and choose the one in the `symmetry_dp` environment.  Future `> Python: Terminal` commands then automatically activate it.
+5. Install dependencies.  With a terminal in that cloned folder (after, optionally, activating an environment as discussed above).
+    ```bash
+    pip install -r requirements.txt
+    ```
+    - If you are in VS Code, opening a python terminal with  `<Shift-Control-P>` then  `> Python: Terminal` will automatically activate the environment and start in the correct location.
+
+**Troubleshooting:** If pytorch is not working, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cpuonly -c pytorch ` or something similar, and then retrying the dependencies installation.  GPUs are not required for these experiments.   If you get compatibility clashes between packages with the `pip install -r requirements.txt` then we recommend using a virtual environment with conda, as described above.
