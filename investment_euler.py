@@ -66,73 +66,47 @@ class InvestmentEuler(pl.LightningModule):
 
         self.save_hyperparameters(ignore=["rho", "phi"])
 
-        # Solves the LQ problem to find the comparison for the baseline
-        # used for comparison as well as simulation of datapoints
-        self.H_0, self.H_1 = self.investment_equilibrium_LQ(1)  # 1 firm is enough for
+        # Solves the LQ problem to find the comparison for the nu=1 case and generating simulations
+        self.H_0, self.H_1 = self.investment_equilibrium_LQ()  # 1 firm is enough for
 
     # Calculates the LQ solution imposing symmetry by hand in the optimization process
-    # Utility for direct comparison when a LQ solution is exact
-    def investment_equilibrium_LQ(self, N):
-        sigma, eta, alpha_0, alpha_1, delta, beta, gamma = (
-            self.hparams.sigma,
-            self.hparams.eta,
-            self.hparams.alpha_0,
-            self.hparams.alpha_1,
-            self.hparams.delta,
-            self.hparams.beta,
-            self.hparams.gamma,
-        )
-        H_iv = [80.0, -0.2, 0.0]
-
-        # Equation (22)
-        B = np.zeros([N + 2, 1])
-        B[1] = 1.0
-
-        # Equation (23)
-        C_1 = np.zeros([N + 1, N + 1])
-        C_2 = np.zeros([1, N + 1])
-        C_1[np.diag_indices(N + 1)] = sigma
-        C_1[:, 0] = eta
-        C_1[0, 1] = sigma
-        C = np.concatenate((C_2, C_1))
-
-        # Equation (24)
-        R = np.zeros([N + 2, N + 2])
-        R[1, :] = alpha_1 / (2 * N)
-        R[:, 1] = alpha_1 / (2 * N)
-        R[1, 1] = 0.0
-        R[0, 1] = -alpha_0 / 2
-        R[1, 0] = -alpha_0 / 2
-
-        Q = gamma / 2
+    def investment_equilibrium_LQ(self):
+        B = np.array([[0.0], [1.0], [0.0]])  # Equation (22)
+        C = np.array(
+            [
+                [0.0, 0.0],
+                [self.hparams.eta, self.hparams.sigma],
+                [self.hparams.eta, self.hparams.sigma],
+            ]
+        )  # Equation (23)
+        R = np.array(
+            [
+                [0.0, -self.hparams.alpha_0 / 2, 0.0],
+                [-self.hparams.alpha_0 / 2, 0.0, self.hparams.alpha_1 / 2],
+                [0.0, self.hparams.alpha_1 / 2, 0.0],
+            ]
+        )  # Equation (24)
+        Q = self.hparams.gamma / 2
 
         # calculating A_hat
         def F_root(H):
-            # Equation (30)
-            H_0, H_1, H_2 = H  # H_2 not used
-
-            # Equation (21)
-            A = (H_1 / N) * np.ones([N + 2, N + 2])
-            A[np.diag_indices(N + 2)] = 1.0 - delta + H_1 / N
-            A[:, 0] = H_0
-            A[:, 1] = 0.0
-            A[0, :] = 0.0
-            A[1, :] = 0.0
-            A[0, 0] = 1.0
-            A[1, 1] = 1.0 - delta
-
-            lq = quantecon.LQ(Q, R, A, B, C, beta=beta)
+            A = np.array(
+                [
+                    [1.0, 0.0, 0.0],
+                    [0.0, 1.0 - self.hparams.delta, 0.0],
+                    [H[0], 0.0, 1.0 - self.hparams.delta + H[1]],
+                ]
+            )  # Equation (21)
+            lq = quantecon.LQ(Q, R, A, B, C, beta=self.hparams.beta)
             P, F, d = lq.stationary_values()
-            return np.array([F[0][0], F[0][1], F[0][2]]) - np.array([-H[0], 0.0, -H[1] / N])
+            return np.array([F[0][0], F[0][1], F[0][2]]) - np.array([-H[0], 0.0, -H[1]])
 
-        H_opt = optimize.root(F_root, H_iv, method="lm", options={"xtol": 1.49012e-8})
+        H_opt = optimize.root(
+            F_root, [80.0, -0.2], method="lm", options={"xtol": 1.49012e-8}
+        )  # hardcoded iv, not sensitive
         if not (H_opt.success):
             sys.exit("H optimization failed to converge.")
-
-        H_hat = H_opt.x
-        if self.hparams.verbose:
-            print(f"LQ optima are: {H_hat}")
-        return H_hat[0], H_hat[1]
+        return H_opt.x[0], H_opt.x[1]
 
     # Used for evaluating u(X) given the current network
     def forward(self, X):
@@ -143,11 +117,6 @@ class InvestmentEuler(pl.LightningModule):
             [torch.mean(self.phi(X[i, :].reshape([N, 1])), 0) for i in range(num_batches)]
         )
         return self.rho(phi_X)
-
-    # An analytic linear policy for simulation and comparison.  Uses LQ solution
-    # Exact if \nu = 1.  Used for generating grid of data, not fitting itself.
-    def linear_policy(self, X):
-        return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
 
     # model residuals given a set of states
     def model_residuals(self, X):
@@ -171,7 +140,6 @@ class InvestmentEuler(pl.LightningModule):
 
         # Expectation using quadrature over aggregate shock
         Ep = (p_primes.T @ self.quadrature_weights).type_as(X).reshape(-1, 1)
-
         Eu = (
             (
                 torch.stack(tuple(self(X_primes[i]) for i in range(len(self.quadrature_nodes))))
@@ -199,14 +167,12 @@ class InvestmentEuler(pl.LightningModule):
 
     def validation_step(self, X, batch_idx):
         residuals = self.model_residuals(X)
-
         loss = (residuals**2).sum() / len(residuals)
-
         self.log("val_loss", loss, prog_bar=True)
 
         # calculate policy error relative to analytic if linear
         if self.hparams.nu == 1:
-            u_ref = self.linear_policy(X)
+            u_ref = self.H_0 + self.H_1 * X.mean(1, keepdim=True)  # closed form if linear
             u_rel_error = torch.mean(torch.abs(self(X) - u_ref) / torch.abs(u_ref))
             self.log("val_u_rel_error", u_rel_error, prog_bar=True)
             u_abs_error = torch.mean(torch.abs(self(X) - u_ref))
@@ -214,20 +180,17 @@ class InvestmentEuler(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         # Test data includes trajectory number, time, etc.
-
         X = batch["X"]
         residuals = self.model_residuals(X)
         loss = (residuals**2).sum() / len(residuals)
-
         self.log("test_loss", loss, prog_bar=True)
 
         # Additional logging results
         if self.hparams.nu == 1:
-            u_linear = self.linear_policy(X)
+            u_linear = self.H_0 + self.H_1 * X.mean(1, keepdim=True)  # closed form if linear
             u_X = self(X)
             u_rel_error = torch.abs(u_X - u_linear) / torch.abs(u_linear)
             u_abs_error = torch.abs(u_X - u_linear)
-
             self.test_results = pd.concat(
                 [
                     self.test_results,
@@ -267,7 +230,7 @@ class InvestmentEuler(pl.LightningModule):
 
     # Data and simulation calculations
     # By default it uses the internal forward function, but can be overridden
-    def simulate(self, num_trajectories, f = None, w=None, omega=None):
+    def simulate(self, num_trajectories, f=None, w=None, omega=None):
         # Simulates random numbers if not provided.
         if f is None:
             f = self.forward
@@ -306,8 +269,7 @@ class InvestmentEuler(pl.LightningModule):
             )
         return torch.cat(data.unbind(0))
 
-    # Simulates all of the data using the state space model
-    # At this point, the code is running local to the GPU/etc.
+    # At this point, the code is running local to the GPU/etc. if used
     def setup(self, stage):
         # quadrature for use within the expectation calculations
         nodes, weights = quantecon.quad.qnwnorm(self.hparams.omega_quadrature_nodes)
@@ -327,9 +289,15 @@ class InvestmentEuler(pl.LightningModule):
         self.X_0 = torch.abs(self.X_0_dist.sample((self.hparams.N,)))
 
         if stage == "fit" or stage is None:
+            # Use a linear policy for initial simulation. Can tweak for robustness checks
+            def initial_trajectory_policy(X):
+                return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
+
             # Simulate fixing the shock sequence
-            self.train_data = self.simulate(self.hparams.train_trajectories, self.linear_policy)
-            self.val_data = self.simulate(self.hparams.val_trajectories, self.linear_policy)
+            self.train_data = self.simulate(
+                self.hparams.train_trajectories, initial_trajectory_policy
+            )
+            self.val_data = self.simulate(self.hparams.val_trajectories, initial_trajectory_policy)
 
         if stage == "test" or stage is None:
             test_trajectories = self.hparams.test_trajectories
@@ -375,7 +343,11 @@ class InvestmentEuler(pl.LightningModule):
     # Reset simulation of training and validation data
     def training_epoch_end(self, outputs):
         # generates trajectories with current policy, regardless of nu
-        if self.hparams.reset_trajectories_frequency > 0 and (self.current_epoch > 0) and (self.current_epoch % self.hparams.reset_trajectories_frequency == 0):
+        if (
+            self.hparams.reset_trajectories_frequency > 0
+            and (self.current_epoch > 0)
+            and (self.current_epoch % self.hparams.reset_trajectories_frequency == 0)
+        ):
             self.train_data = self.simulate(self.hparams.train_trajectories)
             self.val_data = self.simulate(self.hparams.val_trajectories)
 
