@@ -50,7 +50,7 @@ class InvestmentEuler(pl.LightningModule):
         train_trajectories: int,
         val_trajectories: int,
         test_trajectories: int,
-        always_simulate_linear: bool,
+        reset_trajectories_frequency: int,
         batch_size: int,
         shuffle_training: bool,
         T: int,
@@ -374,7 +374,10 @@ class InvestmentEuler(pl.LightningModule):
 
     # Reset simulation of training and validation data
     def training_epoch_end(self, outputs):
-        pass
+        # generates trajectories with current policy, regardless of nu
+        if self.hparams.reset_trajectories_frequency > 0 and (self.current_epoch > 0) and (self.current_epoch % self.hparams.reset_trajectories_frequency == 0):
+            self.train_data = self.simulate(self.hparams.train_trajectories)
+            self.val_data = self.simulate(self.hparams.val_trajectories)
 
 
 def log_and_save(trainer, model, train_time):

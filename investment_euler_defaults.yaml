@@ -78,7 +78,7 @@ model:
   # Settings for method
   omega_quadrature_nodes: 7
   normalize_shock_vector: true
-  always_simulate_linear: false
+  reset_trajectories_frequency: 0 # in epochs, 0 to never reset
   train_trajectories: 16
   val_trajectories: 8
   test_trajectories: 32
