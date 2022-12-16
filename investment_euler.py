@@ -3,29 +3,18 @@ import torch
 import pytorch_lightning as pl
 import yaml
 import math
-import itertools
 import numpy as np
+import scipy
 import wandb
-import warnings
 import timeit
 import quantecon
 import econ_layers
-
-from scipy import optimize
-from torch import nn
 from torch.utils.data import DataLoader
 from econ_layers.utilities import dict_to_cpu
 from pytorch_lightning.cli import LightningCLI
 from pathlib import Path
-from copy import deepcopy
-from typing import Optional
 from pytorch_lightning.loggers import WandbLogger
 
-warnings.filterwarnings(
-    action="ignore", category=UserWarning, message="Due to class_path change from"
-)
-
-# Version with deep sets (i.e., network for both Phi and Rho)
 class InvestmentEuler(pl.LightningModule):
     def __init__(
         self,
@@ -61,11 +50,9 @@ class InvestmentEuler(pl.LightningModule):
         phi: torch.nn.Module,
     ):
         super().__init__()
+        self.save_hyperparameters(ignore=["rho", "phi"]) # access with self.hparams.alpha, etc.
         self.rho = rho
         self.phi = phi
-
-        self.save_hyperparameters(ignore=["rho", "phi"])
-
         # Solves the LQ problem to find the comparison for the nu=1 case and generating simulations
         self.H_0, self.H_1 = self.investment_equilibrium_LQ()  # 1 firm is enough for
 
@@ -101,7 +88,7 @@ class InvestmentEuler(pl.LightningModule):
             P, F, d = lq.stationary_values()
             return np.array([F[0][0], F[0][1], F[0][2]]) - np.array([-H[0], 0.0, -H[1]])
 
-        H_opt = optimize.root(
+        H_opt = scipy.optimize.root(
             F_root, [80.0, -0.2], method="lm", options={"xtol": 1.49012e-8}
         )  # hardcoded iv, not sensitive
         if not (H_opt.success):
@@ -159,9 +146,7 @@ class InvestmentEuler(pl.LightningModule):
 
     def training_step(self, X, batch_idx):
         residuals = self.model_residuals(X)
-
         loss = (residuals**2).sum() / len(residuals)
-
         self.log("train_loss", loss)
         return loss
 
@@ -207,7 +192,6 @@ class InvestmentEuler(pl.LightningModule):
                     ),
                 ]
             )
-            # Log comparisons
             self.log("test_u_rel_error", torch.mean(u_rel_error), prog_bar=True)
             self.log("test_u_abs_error", torch.mean(u_abs_error), prog_bar=True)
         else:
@@ -228,12 +212,11 @@ class InvestmentEuler(pl.LightningModule):
                 ]
             )
 
-    # Data and simulation calculations
-    # By default it uses the internal forward function, but can be overridden
+    # Data and simulation calculations.
     def simulate(self, num_trajectories, f=None, w=None, omega=None):
         # Simulates random numbers if not provided.
         if f is None:
-            f = self.forward
+            f = self.forward  # use the self.forward(..) by default
         if w is None:
             w = torch.randn(
                 num_trajectories,
@@ -293,7 +276,6 @@ class InvestmentEuler(pl.LightningModule):
             def initial_trajectory_policy(X):
                 return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
 
-            # Simulate fixing the shock sequence
             self.train_data = self.simulate(
                 self.hparams.train_trajectories, initial_trajectory_policy
             )
@@ -305,14 +287,11 @@ class InvestmentEuler(pl.LightningModule):
             self.test_data = self.simulate(test_trajectories).reshape(
                 [test_trajectories, self.hparams.T + 1, self.hparams.N]
             )
-
-            # metadata zipping
-            zipped = [
+            self.test_data = [
                 {"ensemble": n, "t": t, "X": self.test_data[n, t, :]}
                 for n in range(test_trajectories)
                 for t in range(self.hparams.T + 1)
-            ]
-            self.test_data = zipped  # used by the dataloader
+            ]  # includes ensemble information for analysis
             self.test_results = pd.DataFrame()
 
     def train_dataloader(self):
@@ -353,9 +332,8 @@ class InvestmentEuler(pl.LightningModule):
 
 
 def log_and_save(trainer, model, train_time):
-    save_path = trainer.log_dir
-
-    # Setup to be wanddb centric for summary statistics/etc.
+    if model.hparams.save_test_results and trainer.log_dir is not None:
+        model.test_results.to_csv(Path(trainer.log_dir) / "test_results.csv", index=False)
     if type(trainer.logger) is WandbLogger:
         # The calculated runtime with pytorch lightning + wandb has many fixed costs which throw off performance comparisons
         trainer.logger.experiment.log({"train_time": train_time})
@@ -378,8 +356,8 @@ def log_and_save(trainer, model, train_time):
                 trainer.logger.experiment.log({"hpo_objective": math.nan})
 
         # save the summary statistics in a file
-        if model.hparams.save_metrics and save_path is not None:
-            metrics_path = Path(save_path) / "metrics.yaml"
+        if model.hparams.save_metrics and trainer.log_dir is not None:
+            metrics_path = Path(trainer.log_dir) / "metrics.yaml"
             with open(metrics_path, "w") as fp:
                 yaml.dump(dict(cli.trainer.logger.experiment.summary), fp)
 
@@ -391,18 +369,6 @@ def log_and_save(trainer, model, train_time):
             trainer.logger.log_text(
                 key="test_results", dataframe=trainer.model.test_results
             )  # Saves on wandb for querying later
-            if model.hparams.save_test_results and save_path is not None:
-                model.test_results.to_csv(Path(save_path) / "test_results.csv", index=False)
-
-    else:
-        # otherwise just conditionally save test_results
-        if (
-            model.hparams.save_test_results
-            and save_path is not None
-            and hasattr(model, "test_results")
-        ):
-            model.test_results.to_csv(Path(save_path) / "test_results.csv", index=False)
-
 
 if __name__ == "__main__":
     cli = LightningCLI(
@@ -413,13 +379,10 @@ if __name__ == "__main__":
         parser_kwargs={"default_config_files": ["investment_euler_defaults.yaml"]},
         save_config_kwargs={"save_config_overwrite": True},
     )
-
-    # Fit the model.  Separating training time for plotting
+    # Fit the model.  Separating training time for plotting, and evaluate generalization
     start = timeit.default_timer()
     cli.trainer.fit(cli.model)
     train_time = timeit.default_timer() - start
-
-    # Check test data
     cli.trainer.test(cli.model)
 
     # Add additional calculations such as HPO objective to the log and save files
