@@ -153,10 +153,6 @@ class InvestmentEuler(pl.LightningModule):
     def linear_policy(self, X):
         return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
 
-    # Model definition
-    def p(self, X):
-        return self.hparams.alpha_0 - self.hparams.alpha_1 * X.pow(self.hparams.nu).mean(2)
-
     # model residuals given a set of states
     def model_residuals(self, X):
         u_X = self(X)
@@ -172,8 +168,10 @@ class InvestmentEuler(pl.LightningModule):
             ]
         ).type_as(X)
 
-        # p(X') expectation
-        p_primes = self.p(X_primes)  # n_quadrature_points by T
+        # p(X') calculation
+        p_primes = self.hparams.alpha_0 - self.hparams.alpha_1 * X_primes.pow(self.hparams.nu).mean(2)
+
+        # Expectation using quadrature over aggregate shock
         Ep = (p_primes.T @ self.quadrature_weights).type_as(X).reshape(-1, 1)
 
         Eu = (
@@ -189,7 +187,7 @@ class InvestmentEuler(pl.LightningModule):
 
         # Euler equation itself
         residuals = self.hparams.gamma * u_X - self.hparams.beta * (
-            Ep + self.hparams.gamma * Eu * (1 - self.hparams.delta)
+            Ep + self.hparams.gamma * (1 - self.hparams.delta) * Eu 
         )  # equation (14)
         return residuals
 
