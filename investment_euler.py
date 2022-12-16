@@ -70,10 +70,6 @@ class InvestmentEuler(pl.LightningModule):
         # used for comparison as well as simulation of datapoints
         self.H_0, self.H_1 = self.investment_equilibrium_LQ(1)  # 1 firm is enough for
 
-        # The "simulation_policy" function starts by using the linear_policy
-        # to begin the simulation of X_t grid points.  Swaps out later if always_simulate_linear = False
-        self.simulation_policy = self.linear_policy
-
     # Calculates the LQ solution imposing symmetry by hand in the optimization process
     # Utility for direct comparison when a LQ solution is exact
     def investment_equilibrium_LQ(self, N):
@@ -169,7 +165,9 @@ class InvestmentEuler(pl.LightningModule):
         ).type_as(X)
 
         # p(X') calculation
-        p_primes = self.hparams.alpha_0 - self.hparams.alpha_1 * X_primes.pow(self.hparams.nu).mean(2)
+        p_primes = self.hparams.alpha_0 - self.hparams.alpha_1 * X_primes.pow(self.hparams.nu).mean(
+            2
+        )
 
         # Expectation using quadrature over aggregate shock
         Ep = (p_primes.T @ self.quadrature_weights).type_as(X).reshape(-1, 1)
@@ -187,7 +185,7 @@ class InvestmentEuler(pl.LightningModule):
 
         # Euler equation itself
         residuals = self.hparams.gamma * u_X - self.hparams.beta * (
-            Ep + self.hparams.gamma * (1 - self.hparams.delta) * Eu 
+            Ep + self.hparams.gamma * (1 - self.hparams.delta) * Eu
         )  # equation (14)
         return residuals
 
@@ -267,10 +265,28 @@ class InvestmentEuler(pl.LightningModule):
                 ]
             )
 
-    ## Data and simulation calculations
-    def simulate(self, w, omega):
-        # TODO: Get number of trajectories from the aggregate shocks/etc.
-        num_trajectories = omega.shape[0]
+    # Data and simulation calculations
+    # By default it uses the internal forward function, but can be overridden
+    def simulate(self, num_trajectories, f = None, w=None, omega=None):
+        # Simulates random numbers if not provided.
+        if f is None:
+            f = self.forward
+        if w is None:
+            w = torch.randn(
+                num_trajectories,
+                self.hparams.T,
+                self.hparams.N,
+                device=self.device,
+                dtype=self.dtype,
+            )
+        if omega is None:
+            omega = torch.randn(
+                num_trajectories,
+                self.hparams.T,
+                1,
+                device=self.device,
+                dtype=self.dtype,
+            )
         data = torch.zeros(
             num_trajectories,
             self.hparams.T + 1,
@@ -282,12 +298,13 @@ class InvestmentEuler(pl.LightningModule):
         data[:, 0, :] = self.X_0
         for t in range(0, self.hparams.T):
             data[:, t + 1, :] = (
-                self.simulation_policy(data[:, t, :])  # num_ensembles by N
+                # Simulate using passed in "f",  which could be linear self.forward.
+                f(data[:, t, :])  # num_ensembles by N
                 + (1 - self.hparams.delta) * data[:, t, :]
                 + self.hparams.sigma * w[:, t, :]
                 + self.hparams.eta * omega[:, t]
             )
-        return torch.cat(data.unbind(0))  # or something like that?
+        return torch.cat(data.unbind(0))
 
     # Simulates all of the data using the state space model
     # At this point, the code is running local to the GPU/etc.
@@ -310,73 +327,16 @@ class InvestmentEuler(pl.LightningModule):
         self.X_0 = torch.abs(self.X_0_dist.sample((self.hparams.N,)))
 
         if stage == "fit" or stage is None:
-            # Create shocks for reuse during simulation.  Fixed to prevent too radical of changes during the fitting process, but not especially important
-            self.omega_train = torch.randn(
-                self.hparams.train_trajectories,
-                self.hparams.T,
-                1,
-                device=self.device,
-                dtype=self.dtype,
-            )
-            self.w_train = torch.randn(
-                self.hparams.train_trajectories,
-                self.hparams.T,
-                self.hparams.N,
-                device=self.device,
-                dtype=self.dtype,
-            )
-
-            self.omega_val = torch.randn(
-                self.hparams.val_trajectories,
-                self.hparams.T,
-                1,
-                device=self.device,
-                dtype=self.dtype,
-            )
-            self.w_val = torch.randn(
-                self.hparams.val_trajectories,
-                self.hparams.T,
-                self.hparams.N,
-                device=self.device,
-                dtype=self.dtype,
-            )
-
             # Simulate fixing the shock sequence
-            self.train_data = self.simulate(
-                self.w_train,
-                self.omega_train,
-            )
-            self.val_data = self.simulate(
-                self.w_val,
-                self.omega_val,
-            )
-
-            # switch future simulations to use the network?
-            if self.hparams.always_simulate_linear is False:
-                self.simulation_policy = (
-                    self.forward
-                )  # use internal neural network.  TODO: Check if forward is correct?
+            self.train_data = self.simulate(self.hparams.train_trajectories, self.linear_policy)
+            self.val_data = self.simulate(self.hparams.val_trajectories, self.linear_policy)
 
         if stage == "test" or stage is None:
             test_trajectories = self.hparams.test_trajectories
-            self.omega_test = torch.randn(
-                self.hparams.test_trajectories,
-                self.hparams.T,
-                1,
-                device=self.device,
-                dtype=self.dtype,
+            # Note that this simulates with the built-in forward function itself, not the linear
+            self.test_data = self.simulate(test_trajectories).reshape(
+                [test_trajectories, self.hparams.T + 1, self.hparams.N]
             )
-            self.w_test = torch.randn(
-                self.hparams.test_trajectories,
-                self.hparams.T,
-                self.hparams.N,
-                device=self.device,
-                dtype=self.dtype,
-            )
-            self.test_data = self.simulate(  # this one needs to be stacked
-                self.w_test,
-                self.omega_test,
-            ).reshape([self.omega_test.shape[0], self.hparams.T + 1, self.hparams.N])
 
             # metadata zipping
             zipped = [
@@ -411,9 +371,11 @@ class InvestmentEuler(pl.LightningModule):
             if self.hparams.batch_size > 0
             else len(self.test_data),
         )
+
     # Reset simulation of training and validation data
-    def training_epoch_end(self,outputs):
+    def training_epoch_end(self, outputs):
         pass
+
 
 def log_and_save(trainer, model, train_time):
     save_path = trainer.log_dir
