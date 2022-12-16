@@ -155,7 +155,7 @@ class InvestmentEuler(pl.LightningModule):
 
     # Model definition
     def p(self, X):
-        return self.hparams.alpha_0 - self.hparams.alpha_1 * X.mean(2).pow(self.hparams.nu)
+        return self.hparams.alpha_0 - self.hparams.alpha_1 * X.pow(self.hparams.nu).mean(2)
 
     # model residuals given a set of states
     def model_residuals(self, X):
@@ -413,7 +413,9 @@ class InvestmentEuler(pl.LightningModule):
             if self.hparams.batch_size > 0
             else len(self.test_data),
         )
-
+    # Reset simulation of training and validation data
+    def training_epoch_end(self,outputs):
+        pass
 
 def log_and_save(trainer, model, train_time):
     save_path = trainer.log_dir
