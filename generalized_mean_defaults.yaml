@@ -58,9 +58,8 @@ lr_scheduler:
 model:
   # Model parameters
   a_max: 2.0  
-  N: 100
+  N: 100 # dimensionality of the state
   p: 2
-  num_points: 1000
 
   # Settings for output
   verbose: false
@@ -70,8 +69,9 @@ model:
   save_test_results: false
 
   # algorithm settings
-  val_proportion: 0.05
-  test_proportion: 0.80 # increase significantly
+  num_train_points: 50
+  num_val_points: 150
+  num_test_points: 850
   batch_size: 30
   shuffle_training: true
 

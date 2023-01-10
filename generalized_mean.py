@@ -20,7 +20,6 @@ class GeneralizedMean(pl.LightningModule):
         a_max: float,
         N: int,
         p: int,
-        num_points: int,
         # some general configuration
         verbose: bool,
         hpo_objective_name: str,
@@ -28,8 +27,9 @@ class GeneralizedMean(pl.LightningModule):
         save_metrics: bool,
         save_test_results: bool,
         # parameters for method
-        val_proportion: float,
-        test_proportion: float,
+        num_train_points: int,
+        num_val_points: int,
+        num_test_points: int,
         batch_size: int,
         shuffle_training: bool,
         # settings for deep learning approximation
@@ -97,39 +97,23 @@ class GeneralizedMean(pl.LightningModule):
         self.log("test_rel_error", rel_error.mean(), prog_bar=True)
         self.log("test_abs_error", abs_error.mean(), prog_bar=True)
 
-    # Data and simulation calculations.
-    def generate_data(self):
-        a_i = np.random.uniform(0, self.hparams.a_max)
-        x_generator = torch.distributions.Uniform(a_i, 1 + a_i)
-        return x_generator.sample([self.hparams.N])
-
-    # computes generalized mean given tensor and p
-    def generalized_mean(self, x, p):
+    
+    # simulate DGP
+    def simulate_data(self, num_points):
         simulated_data = []
-        # can be broadcast
-        for i in range(0, x.shape[0]):
-            y_i = torch.pow(
-                (1 / x.shape[1]) * torch.sum(torch.pow(x[i], p)),
-                1 / p,
-            )
-            p_i = (x[i], y_i.unsqueeze(0))
-            simulated_data.append(p_i)
-
+        for i in range(0, num_points):
+            a_i = np.random.uniform(0, self.hparams.a_max)
+            x_generator = torch.distributions.Uniform(a_i, 1 + a_i)
+            X = x_generator.sample([self.hparams.N])
+            y = X.pow(self.hparams.p).mean().pow(1 / self.hparams.p)  # generalized mean
+            simulated_data.append((X, y.unsqueeze(0)))
         return simulated_data
 
-    # At this point, the code is running local to the GPU/etc. if used
+    # At this point, the code is running local to the GPU/etc.
     def setup(self, stage):
-        X = torch.stack([self.generate_data() for i in range(self.hparams.num_points)])
-        data = self.generalized_mean(X, self.hparams.p)
-        num_val_points = round(self.hparams.num_points * self.hparams.val_proportion)
-        num_test_points = round(self.hparams.num_points * self.hparams.test_proportion)
-        num_train_points = self.hparams.num_points - num_val_points - num_test_points
-        train_data, val_data, test_data = torch.utils.data.random_split(
-            data, [num_train_points, num_val_points, num_test_points]
-        )
-        self.train_data = train_data
-        self.val_data = val_data
-        self.test_data = test_data
+        self.train_data = self.simulate_data(self.hparams.num_train_points)
+        self.val_data = self.simulate_data(self.hparams.num_val_points)
+        self.test_data = self.simulate_data(self.hparams.num_test_points)
         self.test_results = pd.DataFrame()
 
     def train_dataloader(self):
