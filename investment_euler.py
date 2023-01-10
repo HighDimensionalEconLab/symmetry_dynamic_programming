@@ -9,6 +9,7 @@ import wandb
 import timeit
 import quantecon
 import econ_layers
+import scipy.optimize
 from torch.utils.data import DataLoader
 from econ_layers.utilities import dict_to_cpu
 from pytorch_lightning.cli import LightningCLI
