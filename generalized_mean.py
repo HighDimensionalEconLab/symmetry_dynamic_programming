@@ -19,7 +19,7 @@ class GeneralizedMean(pl.LightningModule):
         self,
         a_max: float,
         N: int,
-        p: int,
+        p: float,
         # some general configuration
         verbose: bool,
         hpo_objective_name: str,

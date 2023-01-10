@@ -2,7 +2,6 @@ program: generalized_mean.py
 project: generalized_mean_examples
 description: HPO for train_time to early stopping criteria on val_rel_error
 method: bayes
-tags: 
 metric:
   # See the investment_euler.py log_and_save
   name: hpo_objective
@@ -10,18 +9,33 @@ metric:
   # early_terminate:  not necessary here given the trainer.max_time
 parameters:
   # Fix parameters here:
+  trainer.max_epochs:
+    value: 250
+  trainer.min_epochs:
+    value: 2
   trainer.logger.offline:
     value: false # log online for W&B optimization
   trainer.max_time:
     value: 00:00:03:00  # these tests shouldn't take more than 2-3 minutes
-  lr_scheduler.monitor:
-    value: val_rel_error
-  lr_scheduler.stopping_threshold:
-    value: 0.005
   model.hpo_objective_name:
     value: train_time # sets the objective.  Only logs if monitor < stopping threshold
-  model.num_points:
-    value: 1000 # the number of draws to use 
+  model.N:
+    value: 100 # the dimensionality
+  model.p:
+    value: 1.5 # the generalized mean power
+  model.a_max:
+    value: 2.0
+  model.num_train_points:
+    value: 50
+  model.num_val_points:
+    value: 150
+  model.num_test_points:
+    value: 850
+  # the next two are the "L" and must match
+  model.phi.n_out:
+    value: 2
+  model.rho.n_in:
+    value: 2
 
   # Provide distributions and variations for optimizer
   lr_scheduler.step_size:
@@ -31,13 +45,19 @@ parameters:
   model.phi.layers:
     values: [1, 2]
   model.rho.layers:
-    values: [3, 4]
+    values: [2, 3, 4]
   model.phi.hidden_dim:
     values: [64, 128, 256]
   model.rho.hidden_dim:
     values: [64, 128, 256]
-  model.train_trajectories:
-    values: [2, 4, 8, 16]
   model.batch_size:
-    values: [16, 32]
+    values: [16, 32, 64]
+  model.rho.last_bias:
+    values: [true, false]
+  model.phi.last_bias:
+    values: [true, false]
+  model.rho.hidden_bias:
+    values: [true, false]
+  model.phi.hidden_bias:
+    values: [true, false]
     
