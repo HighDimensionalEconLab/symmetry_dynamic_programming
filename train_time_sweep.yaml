@@ -1,0 +1,35 @@
+program: investment_euler.py
+project: symmetry_dp_examples
+description: HPO for train_time to early stopping criteria on val_loss
+method: bayes
+tags: 
+metric:
+  # See the investment_euler.py log_and_save
+  name: hpo_objective 
+  goal: minimize
+  # early_terminate:  not necessary here given the trainer.max_time
+parameters:
+  # Fix parameters here:
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:03:00  # these tests shouldn't take more than 2-3 minutes
+  model.hpo_objective_name:
+    value: train_time # sets the objective.  Only logs if val_loss < stopping threshold
+
+  # Provide distributions and variations for optimizer
+  optimizer.lr:
+    values: [0.001, 0.0001, 0.0001]
+  model.phi.layers:
+    values: [1, 2]
+  model.rho.layers:
+    values: [3, 4]
+  model.phi.hidden_dim:
+    values: [64, 128, 256]
+  model.rho.hidden_dim:
+    values: [64, 128, 256]
+  model.train_trajectories:
+    values: [2, 4, 8, 16]
+  model.batch_size:
+    values: [16, 32]
+    
