@@ -349,7 +349,7 @@ def log_and_save(trainer, model, train_time):
                 model.hparams.hpo_objective_name
             ]
             if (
-                dict(cli.trainer.logger.experiment.summary)["val_loss"]
+                dict(cli.trainer.logger.experiment.summary)[cli.trainer.early_stopping_callback.monitor]
                 < cli.trainer.early_stopping_callback.stopping_threshold
             ):
                 trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
