@@ -1,0 +1,43 @@
+program: generalized_mean.py
+project: generalized_mean_examples
+description: HPO for train_time to early stopping criteria on val_rel_error
+method: bayes
+tags: 
+metric:
+  # See the investment_euler.py log_and_save
+  name: hpo_objective
+  goal: minimize
+  # early_terminate:  not necessary here given the trainer.max_time
+parameters:
+  # Fix parameters here:
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:03:00  # these tests shouldn't take more than 2-3 minutes
+  lr_scheduler.monitor:
+    value: val_rel_error
+  lr_scheduler.stopping_threshold:
+    value: 0.005
+  model.hpo_objective_name:
+    value: train_time # sets the objective.  Only logs if monitor < stopping threshold
+  model.num_points:
+    value: 1000 # the number of draws to use 
+
+  # Provide distributions and variations for optimizer
+  lr_scheduler.step_size:
+    values: [20, 30, 50, 100]
+  optimizer.lr:
+    values: [0.001, 0.0001, 0.0001]
+  model.phi.layers:
+    values: [1, 2]
+  model.rho.layers:
+    values: [3, 4]
+  model.phi.hidden_dim:
+    values: [64, 128, 256]
+  model.rho.hidden_dim:
+    values: [64, 128, 256]
+  model.train_trajectories:
+    values: [2, 4, 8, 16]
+  model.batch_size:
+    values: [16, 32]
+    

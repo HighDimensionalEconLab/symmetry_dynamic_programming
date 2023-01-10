@@ -10,7 +10,7 @@ trainer:
       offline: true # set to true to not upload during testing
       log_model: false # set to true to save the model at the end
       name: null # can set name or have it automatically generated
-      project: generalized_mean
+      project: generalized_mean_examples
       group: null # can group related runs
       tags:
         - basic_example

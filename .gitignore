@@ -138,4 +138,4 @@ symmetry_examples
 metrics.yaml
 test_results.csv
 wandb/
-generalized_mean/*
+generalized_mean_examples

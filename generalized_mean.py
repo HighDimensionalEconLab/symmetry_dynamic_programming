@@ -41,12 +41,6 @@ class GeneralizedMean(pl.LightningModule):
         self.rho = rho
         self.phi = phi
 
-    # Utility function which makes the batch better for broadcasting.
-    def reshape_batch(self, batch):
-        x_i, y_i = batch
-        y_i = y_i.reshape(len(y_i), 1)
-        return x_i, y_i
-
     # Used for evaluating u(X) given the current network
     def forward(self, X):
         # hard-code network + parameters
@@ -56,20 +50,15 @@ class GeneralizedMean(pl.LightningModule):
         )
         return self.rho(phi_X)
 
-    # model residuals given a set of states
-    def residuals(self, x, y):
-        residuals = y - self(x)
-        return residuals
-
     def training_step(self, batch, batch_idx):
-        x, y = self.reshape_batch(batch)
+        x, y = batch
         residuals = y - self(x)
         loss = (residuals**2).sum() / len(residuals)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = self.reshape_batch(batch)
+        x, y = batch
         residuals = y - self(x)
         loss = (residuals**2).sum() / len(residuals)
 
@@ -81,7 +70,7 @@ class GeneralizedMean(pl.LightningModule):
         self.log("val_abs_error", abs_error, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
-        x, y_f = self.reshape_batch(batch)
+        x, y_f = batch
         y = self(x)
         residuals = y_f - y
         loss = (residuals**2).sum() / len(residuals)
@@ -123,7 +112,7 @@ class GeneralizedMean(pl.LightningModule):
                 (1 / x.shape[1]) * torch.sum(torch.pow(x[i], p)),
                 1 / p,
             )
-            p_i = (x[i], y_i)
+            p_i = (x[i], y_i.unsqueeze(0))
             simulated_data.append(p_i)
 
         return simulated_data
