@@ -1,5 +1,5 @@
 trainer:
-  max_epochs: 250
+  max_epochs: 1000
   min_epochs: 20
   max_time: 00:00:3:00
   precision: 32
@@ -37,17 +37,17 @@ trainer:
         mode: min
         check_finite: true
         divergence_threshold: 100 # stops if larger
-        stopping_threshold: 0.005 # 0.5 percent relative error
+        stopping_threshold: 0.005 # 0.5 percent relative error.  Tough to go much lower 
 optimizer:
   class_path: torch.optim.Adam
   init_args:
-    lr: 1.0e-3
+    lr: 0.005 # low learning rate seems to converge relative quickly here.
 
-# Scheduler currently not tuned
+# Scheduler typically non-binding here
 lr_scheduler:
   class_path: torch.optim.lr_scheduler.StepLR
   init_args:
-    step_size: 30 # number of epochs
+    step_size: 1000 # number of epochs
     gamma: 0.8
 # lr_scheduler:
 #   class_path: torch.optim.lr_scheduler.ReduceLROnPlateau
@@ -58,8 +58,8 @@ lr_scheduler:
 model:
   # Model parameters
   a_max: 2.0  
-  N: 100 # dimensionality of the state
-  p: 2
+  N: 32 # dimensionality of the state
+  p: 1.5
 
   # Settings for output
   verbose: false
@@ -69,10 +69,10 @@ model:
   save_test_results: false
 
   # algorithm settings
-  num_train_points: 50
-  num_val_points: 150
-  num_test_points: 850
-  batch_size: 30
+  num_train_points: 10
+  num_val_points: 50
+  num_test_points: 200
+  batch_size: 32
   shuffle_training: true
 
   phi: # if above fails, hardcode this (dump into econlayers later)
@@ -80,8 +80,8 @@ model:
     init_args:
       n_in: 1
       n_out: 2
-      layers: 2
-      hidden_dim: 128
+      layers: 1
+      hidden_dim: 256
       hidden_bias: true
       last_bias: true
       activator:
@@ -93,7 +93,7 @@ model:
       n_out: 1
       layers: 2
       hidden_dim: 128
-      hidden_bias: true
+      hidden_bias: false
       last_bias: true
       activator:
         class_path: torch.nn.ReLU

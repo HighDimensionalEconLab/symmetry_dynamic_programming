@@ -12,7 +12,7 @@ parameters:
   trainer.max_epochs:
     value: 250
   trainer.min_epochs:
-    value: 2
+    value: 0
   trainer.logger.offline:
     value: false # log online for W&B optimization
   trainer.max_time:
@@ -38,26 +38,20 @@ parameters:
     value: 2
 
   # Provide distributions and variations for optimizer
-  lr_scheduler.step_size:
-    values: [20, 30, 50, 100]
   optimizer.lr:
-    values: [0.001, 0.0001, 0.0001]
+    #values: [0.001, 0.0001, 0.0001]
+    distribution: uniform
+    min: 0.0001
+    max: 0.01
   model.phi.layers:
-    values: [1, 2]
+    # values: [1, 2]
+    value: 1
   model.rho.layers:
-    values: [2, 3, 4]
+    #values: [1, 2, 3]
+    value: 2
   model.phi.hidden_dim:
-    values: [64, 128, 256]
+  #   values: [128, 256]
+    value: 256  
   model.rho.hidden_dim:
-    values: [64, 128, 256]
-  model.batch_size:
-    values: [16, 32, 64]
-  model.rho.last_bias:
-    values: [true, false]
-  model.phi.last_bias:
-    values: [true, false]
-  model.rho.hidden_bias:
-    values: [true, false]
-  model.phi.hidden_bias:
-    values: [true, false]
-    
+    #values: [64, 128, 256]
+    value: 128

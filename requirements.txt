@@ -1,5 +1,5 @@
-pytorch-lightning>=1.8
-torch >= 1.3
+pytorch-lightning>=1.8.6
+torch >= 1.13
 matplotlib>=3.4
 black
 jsonargparse[all]>=4.18
@@ -7,4 +7,4 @@ pandas
 econ-layers >= 0.0.27
 SciPy >= 1.7.1
 quantecon>=0.5
-wandb>=0.13.7
+wandb>=0.13.8
