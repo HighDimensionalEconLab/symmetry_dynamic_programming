@@ -33,22 +33,15 @@ class GeneralizedMean(pl.LightningModule):
         batch_size: int,
         shuffle_training: bool,
         # settings for deep learning approximation
-        rho: torch.nn.Module,
-        phi: torch.nn.Module,
+        ml_model: torch.nn.Module,
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=["rho", "phi"])  # access with self.hparams.alpha, etc.
-        self.rho = rho
-        self.phi = phi
+        self.save_hyperparameters(ignore=["ml_model"])  # access with self.hparams.alpha, etc.
+        self.ml_model = ml_model
 
     # Used for evaluating u(X) given the current network
     def forward(self, X):
-        # hard-code network + parameters
-        num_batches, N = X.shape
-        phi_X = torch.stack(
-            [torch.mean(self.phi(X[i, :].reshape([N, 1])), 0) for i in range(num_batches)]
-        )
-        return self.rho(phi_X)
+        return self.ml_model(X) # deep sets/etc.
 
     def training_step(self, batch, batch_idx):
         x, y = batch

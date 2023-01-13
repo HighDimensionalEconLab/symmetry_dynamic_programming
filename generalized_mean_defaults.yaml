@@ -49,6 +49,7 @@ lr_scheduler:
   init_args:
     step_size: 1000 # number of epochs
     gamma: 0.8
+    
 # lr_scheduler:
 #   class_path: torch.optim.lr_scheduler.ReduceLROnPlateau
 #   init_args:
@@ -75,25 +76,37 @@ model:
   batch_size: 32
   shuffle_training: true
 
-  phi: # if above fails, hardcode this (dump into econlayers later)
-    class_path: econ_layers.layers.FlexibleSequential
+  ml_model:
+    class_path: econ_layers.layers.DeepSet
     init_args:
       n_in: 1
-      n_out: 2
-      layers: 1
-      hidden_dim: 256
-      hidden_bias: true
-      last_bias: true
-      activator:
-        class_path: torch.nn.ReLU
-  rho:
-    class_path: econ_layers.layers.FlexibleSequential
-    init_args:
-      n_in: 2
       n_out: 1
-      layers: 2
-      hidden_dim: 128
-      hidden_bias: false
-      last_bias: true
-      activator:
+      L: 2
+
+      phi_layers: 1
+      phi_hidden_dim: 256
+      phi_hidden_bias: true
+      phi_last_bias: true
+      phi_activator:
         class_path: torch.nn.ReLU
+
+      rho_layers: 2
+      rho_hidden_dim: 128
+      rho_hidden_bias: false
+      rho_last_bias: true
+      rho_activator:
+        class_path: torch.nn.ReLU
+
+  # ml_model:
+  #   class_path: econ_layers.layers.DeepSetMoments
+  #   init_args:
+  #     n_in: 1
+  #     n_out: 1
+  #     L: 2 # also the number of moments
+
+  #     rho_layers: 2
+  #     rho_hidden_dim: 128
+  #     rho_hidden_bias: false
+  #     rho_last_bias: true
+  #     rho_activator:
+  #       class_path: torch.nn.ReLU
