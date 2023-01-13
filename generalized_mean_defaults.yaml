@@ -1,5 +1,5 @@
 trainer:
-  max_epochs: 1
+  max_epochs: 250
   min_epochs: 0
   max_time: 00:00:3:00
   precision: 32
@@ -29,6 +29,7 @@ trainer:
         save_weights_only: true
         mode: min
         auto_insert_metric_name: true
+    # nonbinding for LBFGS
     - class_path: pytorch_lightning.callbacks.EarlyStopping
       init_args:
         monitor: val_rel_error
@@ -39,23 +40,26 @@ trainer:
         divergence_threshold: 100 # stops if larger
         stopping_threshold: 0.005 #05 # 0.5 percent relative error.  Tough to go much lower 
 
+
+# LBFGS it is very fast, but sometimes can't hit the lower stopping_threshold for some N.  set to 0.0075 for example and it can usually achieve it.
+# set trainer.max_epochs=1
+# Set the maximum number of iterations higher?
+# python generalized_mean.py --trainer.max_epochs=1 --model.N=4 etc. to test
+
+optimizer:
+  class_path: torch.optim.LBFGS
+  init_args:
+    tolerance_grad: 1.0e-7
+    max_iter: 5000
+    line_search_fn: null # 'strong_wolfe' doesn't seem to help much here
+
+
 # optimizer:
 #   class_path: torch.optim.Adam
 #   init_args:
 #     lr: 0.005 # low learning rate seems to converge relative quickly here.
 
-# If using LBFGS it is very fast, but can't hit the lower stopping_threshold for some N.  set to 0.0075 for example
-# set trainer.max_epochs=1
-# Set the maximum number of iterations higher?
-optimizer:
-  class_path: torch.optim.LBFGS
-  init_args:
-    tolerance_grad: 1.0e-6
-    max_iter: 1000
-    line_search_fn: 'strong_wolfe'
-
-
-# Scheduler typically non-binding here
+# Schedulers either non-binding or not helpful for this problem.
 # lr_scheduler:
 #   class_path: torch.optim.lr_scheduler.StepLR
 #   init_args:
@@ -63,11 +67,12 @@ optimizer:
 #     gamma: 0.8
 
 # lr_scheduler:
-#   class_path: torch.optim.lr_scheduler.ReduceLROnPlateau
+#   class_path: pytorch_lightning.cli.ReduceLROnPlateau #torch.optim.lr_scheduler.ReduceLROnPlateau
 #   init_args:
-#     factor: 0.1
-#     mode: min
-#     patience: 5
+#     monitor: val_rel_error
+#     factor: 0.99
+#     patience: 10
+
 model:
   # Model parameters
   a_max: 2.0  
