@@ -17,7 +17,9 @@ from pytorch_lightning.loggers import WandbLogger
 class GeneralizedMean(pl.LightningModule):
     def __init__(
         self,
+        a_min: float,
         a_max: float,
+        std: float,
         N: int,
         p: float,
         # some general configuration
@@ -95,9 +97,8 @@ class GeneralizedMean(pl.LightningModule):
     def simulate_data(self, num_points):
         simulated_data = []
         for i in range(0, num_points):
-            a_i = np.random.uniform(0, self.hparams.a_max)
-            x_generator = torch.distributions.Uniform(a_i, 1 + a_i)
-            X = x_generator.sample([self.hparams.N])
+            a_i = np.random.uniform(self.hparams.a_min, self.hparams.a_max)
+            X = torch.normal(a_i, self.hparams.std, size=(self.hparams.N,))
             y = X.pow(self.hparams.p).mean().pow(1 / self.hparams.p)  # generalized mean
             simulated_data.append((X, y.unsqueeze(0)))
         return simulated_data
