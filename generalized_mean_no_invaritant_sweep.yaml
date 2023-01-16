@@ -42,7 +42,7 @@ parameters:
   # Provide distributions and variations for optimizer
   optimizer.lr:
     # values: [0.005, 0.05]
-    values: [0.001, 0.0001, 0.0001]
+    # values: [0.001, 0.0001, 0.0001]
     distribution: uniform
     min: 0.0001
     max: 0.01
@@ -59,4 +59,4 @@ parameters:
   model.ml_model.hidden_dim:
     values: [64, 128, 256]
   model.ml_model.hidden_bias:
-    value: [true,false]
+    values: [true,false]
