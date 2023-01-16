@@ -29,7 +29,7 @@ trainer:
         save_weights_only: true
         mode: min
         auto_insert_metric_name: true
-    # nonbinding for LBFGS
+    # nonbinding for LBFGS.  Used in conjunction with the hpo_objective to see if a result was successful in some cases
     - class_path: pytorch_lightning.callbacks.EarlyStopping
       init_args:
         monitor: val_rel_error
@@ -39,6 +39,9 @@ trainer:
         check_finite: true
         divergence_threshold: 100 # stops if larger
         stopping_threshold: 0.005 #05 # 0.5 percent relative error.  Tough to go much lower 
+
+# CLI for the loggers only modifies the last one:
+# python generalized_mean.py --trainer.max_epochs=5 --trainer.callbacks.stopping_threshold=0.01    
 
 
 # LBFGS it is very fast, but sometimes can't hit the lower stopping_threshold for some N.  set to 0.0075 for example and it can usually achieve it.
@@ -81,13 +84,14 @@ model:
   # Model parameters
   a_min: 1.0
   a_max: 2.0
-  std: 0.1
+  std: 0.2 # want to make sure it isn't too small or else it is too easy of a problem
   N: 32 # dimensionality of the state
   p: 1.5
 
   # Settings for output
   verbose: false
   hpo_objective_name: test_rel_error
+  always_log_hpo_objective: false
   print_metrics: false
   save_metrics: false
   save_test_results: false
@@ -138,7 +142,7 @@ model:
 
 
   ## No invariants
-  # python generalized_mean.py --model.ml_model.class_path=econ_layers.layers.FlexibleSequential --model.N=32 --model.ml_model.n_in=32 --model.ml_model.layers=3 --model.ml_model.hidden_dim=256
+  # python generalized_mean.py --model.ml_model.class_path=econ_layers.layers.FlexibleSequential --model.N=32 --model.ml_model.n_in=32 --model.ml_model.layers=3 --model.ml_model.hidden_dim=256 --trainer.max_epochs=1000
   # ml_model:
   #   class_path: econ_layers.layers.FlexibleSequential
   #   init_args:

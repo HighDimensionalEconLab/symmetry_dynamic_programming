@@ -1,0 +1,62 @@
+program: generalized_mean.py
+project: generalized_mean_examples
+description: HPO for train_time to find the best val_rel_error
+method: bayes
+metric:
+  # See the investment_euler.py log_and_save
+  name: hpo_objective
+  goal: minimize
+  # early_terminate:  not necessary here given the trainer.max_time
+parameters:
+  # Fix parameters here:
+  trainer.max_epochs:
+    value: 2000
+  trainer.min_epochs:
+    value: 0
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:5:00 
+  model.hpo_objective_name:
+    value: val_rel_error
+  model.N:
+    value: 32 # the dimensionality
+  model.p:
+    value: 1.5 # the generalized mean power
+  model.a_max:
+    value: 2.0
+  model.num_train_points:
+    value: 10
+  model.num_val_points:
+    value: 50
+  model.num_test_points:
+    value: 200
+  model.always_log_hpo_objective:
+    value: true
+  trainer.callbacks.stopping_threshold:
+    value: 1e-6
+  trainer.callbacks.monitor:
+    value: train_loss
+  trainer.callbacks.divergence_threshold:
+    value: 1e6
+  # Provide distributions and variations for optimizer
+  optimizer.lr:
+    # values: [0.005, 0.05]
+    values: [0.001, 0.0001, 0.0001]
+    distribution: uniform
+    min: 0.0001
+    max: 0.01
+
+  #  Using a basic 
+  model.ml_model.class_path:
+    value: econ_layers.layers.FlexibleSequential
+  model.ml_model.n_in:
+    value: 32 # must match the "N" parameter in this case
+  model.ml_model.n_out:
+    value: 1
+  model.ml_model.layers:
+    values: [1,2,3,4]
+  model.ml_model.hidden_dim:
+    values: [64, 128, 256]
+  model.ml_model.hidden_bias:
+    value: [true,false]

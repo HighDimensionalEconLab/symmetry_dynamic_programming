@@ -25,6 +25,7 @@ class GeneralizedMean(pl.LightningModule):
         # some general configuration
         verbose: bool,
         hpo_objective_name: str,
+        always_log_hpo_objective: bool,
         print_metrics: bool,
         save_metrics: bool,
         save_test_results: bool,
@@ -43,7 +44,7 @@ class GeneralizedMean(pl.LightningModule):
 
     # Used for evaluating u(X) given the current network
     def forward(self, X):
-        return self.ml_model(X) # deep sets/etc.
+        return self.ml_model(X)  # deep sets/etc.
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -92,7 +93,6 @@ class GeneralizedMean(pl.LightningModule):
         self.log("test_rel_error", rel_error.mean(), prog_bar=True)
         self.log("test_abs_error", abs_error.mean(), prog_bar=True)
 
-    
     # simulate DGP
     def simulate_data(self, num_points):
         simulated_data = []
@@ -141,19 +141,26 @@ def log_and_save(trainer, model, train_time):
         trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
         trainer.logger.experiment.log({"trainable_parameters": trainable_parameters})
 
-        # Set objective for hyperparameter optimization.  Only log if successful (e.g., val_loss < stopping_threshold)
-        if hasattr(cli.trainer, "early_stopping_callback"):
-            hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
-                model.hparams.hpo_objective_name
-            ]
-            if (
-                dict(cli.trainer.logger.experiment.summary)[cli.trainer.early_stopping_callback.monitor
-] # e.g., `val_loss`
+        # Set objective for hyperparameter optimization.  Only log if always_log_hpo_objective=true or successful (e.g., val_loss < stopping_threshold)
+        hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
+            model.hparams.hpo_objective_name
+        ]
+
+        if model.hparams.always_log_hpo_objective:
+            trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
+        elif (
+            hasattr(cli.trainer, "early_stopping_callback")
+            and hasattr(cli.trainer.early_stopping_callback, "monitor")
+            and (
+                dict(cli.trainer.logger.experiment.summary)[
+                    cli.trainer.early_stopping_callback.monitor
+                ]  # e.g., `val_loss` or `train_loss``
                 < cli.trainer.early_stopping_callback.stopping_threshold
-            ):
-                trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
-            else:
-                trainer.logger.experiment.log({"hpo_objective": math.nan})
+            )
+        ):
+            trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
+        else:
+            trainer.logger.experiment.log({"hpo_objective": math.nan})
 
         # save the summary statistics in a file
         if model.hparams.save_metrics and trainer.log_dir is not None:
