@@ -20,7 +20,7 @@ parameters:
   model.hpo_objective_name:
     value: val_rel_error
   model.N:
-    value: 32 # the dimensionality
+    value: 128 # the dimensionality
   model.p:
     value: 1.5 # the generalized mean power
   model.a_max:
@@ -51,7 +51,7 @@ parameters:
   model.ml_model.class_path:
     value: econ_layers.layers.FlexibleSequential
   model.ml_model.n_in:
-    value: 32 # must match the "N" parameter in this case
+    value: 128 # must match the "N" parameter in this case
   model.ml_model.n_out:
     value: 1
   model.ml_model.layers:

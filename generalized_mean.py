@@ -19,6 +19,7 @@ class GeneralizedMean(pl.LightningModule):
         self,
         a_min: float,
         a_max: float,
+        X_distribution: str,
         std: float,
         N: int,
         p: float,
@@ -98,7 +99,13 @@ class GeneralizedMean(pl.LightningModule):
         simulated_data = []
         for i in range(0, num_points):
             a_i = np.random.uniform(self.hparams.a_min, self.hparams.a_max)
-            X = torch.normal(a_i, self.hparams.std, size=(self.hparams.N,))
+            if self.hparams.X_distribution=="normal":
+                X = torch.normal(a_i, self.hparams.std, size=(self.hparams.N,))
+            elif self.hparams.X_distribution=="uniform":
+                d = self.hparams.std * math.sqrt(3) # ensures std is correct
+                X = torch.rand(self.hparams.N) * 2 * d + a_i - d # uniform in [a_i - d, a_i + d]
+            else:
+                raise ValueError("Distribution not supported")
             y = X.pow(self.hparams.p).mean().pow(1 / self.hparams.p)  # generalized mean
             simulated_data.append((X, y.unsqueeze(0)))
         return simulated_data
@@ -141,23 +148,14 @@ def log_and_save(trainer, model, train_time):
         trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
         trainer.logger.experiment.log({"trainable_parameters": trainable_parameters})
 
-        # Set objective for hyperparameter optimization.  Only log if always_log_hpo_objective=true or successful (e.g., val_loss < stopping_threshold)
+        # Set objective for hyperparameter optimization.
         hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
             model.hparams.hpo_objective_name
         ]
 
         if model.hparams.always_log_hpo_objective:
             trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
-        elif (
-            hasattr(cli.trainer, "early_stopping_callback")
-            and hasattr(cli.trainer.early_stopping_callback, "monitor")
-            and (
-                dict(cli.trainer.logger.experiment.summary)[
-                    cli.trainer.early_stopping_callback.monitor
-                ]  # e.g., `val_loss` or `train_loss``
-                < cli.trainer.early_stopping_callback.stopping_threshold
-            )
-        ):
+        elif trainer.current_epoch < trainer.max_epochs:
             trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
         else:
             trainer.logger.experiment.log({"hpo_objective": math.nan})
