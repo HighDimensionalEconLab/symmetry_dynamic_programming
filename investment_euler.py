@@ -31,6 +31,7 @@ class InvestmentEuler(pl.LightningModule):
         # some general configuration
         verbose: bool,
         hpo_objective_name: str,
+        always_log_hpo_objective: bool,        
         print_metrics: bool,
         save_metrics: bool,
         save_test_results: bool,
@@ -47,13 +48,11 @@ class InvestmentEuler(pl.LightningModule):
         X_0_loc: float,
         X_0_scale: float,
         # settings for deep learning approximation
-        rho: torch.nn.Module,
-        phi: torch.nn.Module,
+        ml_model: torch.nn.Module,
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=["rho", "phi"]) # access with self.hparams.alpha, etc.
-        self.rho = rho
-        self.phi = phi
+        self.save_hyperparameters(ignore=["ml_model"]) # access with self.hparams.alpha, etc.
+        self.ml_model = ml_model
         # Solves the LQ problem to find the comparison for the nu=1 case and generating simulations
         self.H_0, self.H_1 = self.investment_equilibrium_LQ()  # 1 firm is enough for
 
@@ -98,13 +97,7 @@ class InvestmentEuler(pl.LightningModule):
 
     # Used for evaluating u(X) given the current network
     def forward(self, X):
-        num_batches, N = X.shape
-
-        # Apply network with the representation and "mean" pooling
-        phi_X = torch.stack(
-            [torch.mean(self.phi(X[i, :].reshape([N, 1])), 0) for i in range(num_batches)]
-        )
-        return self.rho(phi_X)
+        return self.ml_model(X)  # deep sets/etc.
 
     # model residuals given a set of states
     def model_residuals(self, X):
@@ -343,18 +336,17 @@ def log_and_save(trainer, model, train_time):
         trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
         trainer.logger.experiment.log({"trainable_parameters": trainable_parameters})
 
-        # Set objective for hyperparameter optimization.  Only log if successful (i.e, val_loss < stopping_threshold)
-        if hasattr(cli.trainer, "early_stopping_callback"):
-            hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
-                model.hparams.hpo_objective_name
-            ]
-            if (
-                dict(cli.trainer.logger.experiment.summary)[cli.trainer.early_stopping_callback.monitor]
-                < cli.trainer.early_stopping_callback.stopping_threshold
-            ):
-                trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
-            else:
-                trainer.logger.experiment.log({"hpo_objective": math.nan})
+        # Set objective for hyperparameter optimization.
+        hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
+            model.hparams.hpo_objective_name
+        ]
+
+        if model.hparams.always_log_hpo_objective:
+            trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
+        elif trainer.current_epoch < trainer.max_epochs:
+            trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
+        else:
+            trainer.logger.experiment.log({"hpo_objective": math.nan})
 
         # save the summary statistics in a file
         if model.hparams.save_metrics and trainer.log_dir is not None:

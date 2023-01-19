@@ -1,5 +1,5 @@
 trainer:
-  max_epochs: 250
+  max_epochs: 1000
   min_epochs: 0
   max_time: 00:00:3:00
   precision: 32
@@ -37,7 +37,7 @@ trainer:
         patience: 1000000
         mode: min
         check_finite: true
-        divergence_threshold: 1e6 # stops if larger
+        divergence_threshold: 1e5 # stops if larger
         stopping_threshold: 1.0e-6   # If using val_rel_error then order of magnitude 0.05 or so
 
 # CLI for the loggers only modifies the last one:

@@ -43,7 +43,7 @@ class GeneralizedMean(pl.LightningModule):
         self.save_hyperparameters(ignore=["ml_model"])  # access with self.hparams.alpha, etc.
         self.ml_model = ml_model
 
-    # Used for evaluating u(X) given the current network
+    # Used for evaluating the model
     def forward(self, X):
         return self.ml_model(X)  # deep sets/etc.
 
