@@ -27,12 +27,17 @@ python investment_euler.py --trainer.max_epochs=5
 ```
 Or to change the neural network architecture, you could try things such as increasing the `L` of the model
 ```bash
-python investment_euler.py --trainer.max_epochs=2 --model.rho.n_in=8 --model.phi.n_out=8 
+python investment_euler.py --trainer.max_epochs=2 --model.ml_model.L=8
 ```
 Or changing the number of layers
 ```bash
-python investment_euler.py --trainer.max_epochs=5 --model.phi.layers=1
+python investment_euler.py --trainer.max_epochs=5 --model.ml_model.phi_layers=1
 ```
+
+You can swap out the entire neural network by passing in a different `ml_model` class.  For example, to use a `DeepSetMoments` model, you could do
+```bash
+ python investment_euler.py --model.ml_model.class_path=econ_layers.layers.DeepSetMoments --model.ml_model.L=4 --model.ml_model.n_in=1 --model.ml_model.n_out=1 --model.ml_model.rho_layers=3 --model.ml_model.rho_hidden_dim=256 --model.ml_model.rho_hidden_bias=false --model.ml_model.rho_last_bias=true
+ ```
 
 To change the economic variables such nonlinearity in prices, you could try things such as
 
