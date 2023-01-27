@@ -58,14 +58,14 @@ class InvestmentEuler(pl.LightningModule):
 
     # Calculates the LQ solution imposing symmetry by hand in the optimization process
     def investment_equilibrium_LQ(self):
-        B = np.array([[0.0], [1.0], [0.0]])  # Equation (22)
+        B = np.array([[0.0], [1.0], [0.0]])  
         C = np.array(
             [
                 [0.0, 0.0],
                 [self.hparams.eta, self.hparams.sigma],
                 [self.hparams.eta, self.hparams.sigma],
             ]
-        )  # Equation (23)
+        )  
         R = np.array(
             [
                 [0.0, -self.hparams.alpha_0 / 2, 0.0],
@@ -90,7 +90,7 @@ class InvestmentEuler(pl.LightningModule):
 
         H_opt = scipy.optimize.root(
             F_root, [80.0, -0.2], method="lm", options={"xtol": 1.49012e-8}
-        )  # hardcoded iv, not sensitive
+        ) 
         if not (H_opt.success):
             sys.exit("H optimization failed to converge.")
         return H_opt.x[0], H_opt.x[1]
