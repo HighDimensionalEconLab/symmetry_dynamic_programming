@@ -266,7 +266,7 @@ class InvestmentEuler(pl.LightningModule):
         self.X_0 = torch.abs(self.X_0_dist.sample((self.hparams.N,)))
 
         if stage == "fit" or stage is None:
-            # Use a linear policy for initial simulation. Can tweak for robustness checks
+            # Use a linear policy for initial simulation: h_0 + h_1 mean(X). h_0>0, h_1<0 guarantees stationarity and positivity. |h_0/h_1|<1 guarantees prices p(X)>0 in the sample
             def initial_trajectory_policy(X):
                 return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
 
