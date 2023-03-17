@@ -106,7 +106,7 @@ model:
 
       rho_layers: 4
       rho_hidden_dim: 256
-      rho_hidden_bias: true # not crucially important?
+      rho_hidden_bias: true 
       rho_last_bias: true
       rho_activator:
         class_path: torch.nn.ReLU
