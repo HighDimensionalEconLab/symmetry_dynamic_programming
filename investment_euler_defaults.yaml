@@ -47,7 +47,7 @@ optimizer:
 lr_scheduler:
   class_path: torch.optim.lr_scheduler.StepLR
   init_args:
-    step_size: 50 # number of epochs
+    step_size: 10 # number of epochs
     gamma: 0.8
 # lr_scheduler:
 #   class_path: torch.optim.lr_scheduler.ReduceLROnPlateau
@@ -70,6 +70,7 @@ model:
   # Settings for output
   verbose: false
   hpo_objective_name: test_loss
+  always_log_hpo_objective: false  
   print_metrics: false
   save_metrics: false
   save_test_results: false
@@ -88,24 +89,40 @@ model:
   X_0_loc: 0.9
   X_0_scale: 0.05
 
-  # Settings for neural networks
-  # rho 
-  rho: 
-    class_path: econ_layers.layers.FlexibleSequential
-    init_args: 
-      n_in: 4
-      n_out: 1
-      layers: 4
-      hidden_dim: 256
-      hidden_bias: true
-      last_bias: true
-  # phi
-  phi: 
-    class_path: econ_layers.layers.FlexibleSequential
+  # Settings for deep sets neural networks
+  ml_model:
+    class_path: econ_layers.layers.DeepSet
     init_args:
       n_in: 1
-      n_out: 4
-      layers: 1
-      hidden_dim: 128 
-      hidden_bias: false
-      last_bias: true 
+      n_out: 1
+      L: 4
+
+      phi_layers: 1
+      phi_hidden_dim: 128
+      phi_hidden_bias: false
+      phi_last_bias: true
+      phi_activator:
+        class_path: torch.nn.ReLU
+
+      rho_layers: 4
+      rho_hidden_dim: 256
+      rho_hidden_bias: true 
+      rho_last_bias: true
+      rho_activator:
+        class_path: torch.nn.ReLU
+
+  # Can also change on CLI such as
+ #python investment_euler.py --model.ml_model.class_path=econ_layers.layers.DeepSetMoments --model.ml_model.L=4 --model.ml_model.n_in=1 --model.ml_model.n_out=1 --model.ml_model.rho_layers=3 --model.ml_model.rho_hidden_dim=256 --model.ml_model.rho_hidden_bias=false --model.ml_model.rho_last_bias=true
+  # ml_model:
+  #   class_path: econ_layers.layers.DeepSetMoments
+  #   init_args:
+  #     n_in: 1
+  #     n_out: 1
+  #     L: 4 # also the number of moments
+
+  #     rho_layers: 4
+  #     rho_hidden_dim: 256
+  #     rho_hidden_bias: false # breaks without
+  #     rho_last_bias: true
+  #     rho_activator:
+  #       class_path: torch.nn.ReLU        
