@@ -7,4 +7,4 @@ pandas
 econ-layers >= 0.0.28
 SciPy >= 1.7.1
 quantecon>=0.5
-wandb>=0.13.8
+wandb>=0.14
