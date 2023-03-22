@@ -31,9 +31,9 @@ parameters:
   model.ml_model.init_args.rho_layers:
     value: 4
   model.ml_model.init_args.rho_hidden_dim:
-    value: 128
+    value: 256
   model.ml_model.init_args.rho_hidden_bias:
-    value: true
+    value: false
   model.ml_model.init_args.rho_last_bias:
     value: true
   model.ml_model.init_args.rho_activator.class_path:
