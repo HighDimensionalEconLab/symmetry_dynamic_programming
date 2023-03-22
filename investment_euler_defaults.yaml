@@ -99,13 +99,13 @@ model:
 
       phi_layers: 1
       phi_hidden_dim: 128
-      phi_hidden_bias: true
+      phi_hidden_bias: false
       phi_last_bias: true
       phi_activator:
         class_path: torch.nn.ReLU
 
       rho_layers: 4
-      rho_hidden_dim: 128
+      rho_hidden_dim: 256
       rho_hidden_bias: true 
       rho_last_bias: true
       rho_activator:
