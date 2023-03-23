@@ -2,7 +2,7 @@ program: investment_euler.py
 method: grid
 parameters:
   trainer.logger.tags:
-    value: [baseline_deep_sets_one_run]
+    value: [baseline_deep_sets_1_run]
   seed:
     value: 123 
 
