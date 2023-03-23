@@ -1,0 +1,49 @@
+program: investment_euler.py
+project: symmetry_dp_examples
+description: HPO for train_time to early stopping criteria on val_loss of the baseline_deep_moments
+method: bayes
+metric:
+  # See the investment_euler.py log_and_save
+  name: hpo_objective 
+  goal: minimize
+  # early_terminate:  not necessary here given the trainer.max_time
+parameters:
+  # Fix parameters here:
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:03:00  # these tests shouldn't take more than 2-3 minutes
+  model.hpo_objective_name:
+    value: train_time
+  model.always_log_hpo_objective:
+    value: true
+   # Stopping criteria
+  trainer.callbacks.monitor:
+    value: val_loss
+  trainer.callbacks.stopping_threshold:
+    value: 1.0e-6
+
+  # Provide distributions and variations for optimizer
+  model.N:
+    value: 128
+  optimizer.lr:
+    min: 1.0e-4
+    max: 2.0e-3
+  model.ml_model.class_path:
+    value: econ_layers.layers.DeepSetMoments    
+  model.ml_model.init_args.n_in:
+    value: 1
+  model.ml_model.init_args.n_out:
+    value: 1
+  model.ml_model.init_args.L:
+    values: [1]        
+  model.ml_model.init_args.rho_layers:
+    values: [1,2,3,4]
+  model.ml_model.init_args.rho_hidden_dim:
+    values: [64, 128, 256]    
+  model.ml_model.init_args.rho_hidden_bias:
+    values: [true,false]
+  model.ml_model.init_args.rho_last_bias:
+    value: true
+  model.ml_model.init_args.rho_activator.class_path:
+    value: torch.nn.ReLU
