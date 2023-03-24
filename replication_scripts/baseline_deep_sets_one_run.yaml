@@ -1,0 +1,25 @@
+program: investment_euler.py
+method: grid
+parameters:
+  trainer.logger.tags:
+    value: [baseline_deep_sets_1_run]
+  seed:
+    value: 123 
+
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:03:00  # these tests shouldn't take more than 2-3 minutes
+
+  # Stopping criteria
+  trainer.callbacks.monitor:
+    value: val_loss
+  trainer.callbacks.stopping_threshold:
+    value: 1.0e-6
+  #Learning rate
+  #optimizer.lr:
+    #value: 1.0e-4
+
+  # Core parameters which may be different from baseline investment_euler_defaults.yaml
+  model.N:
+    value: 128
