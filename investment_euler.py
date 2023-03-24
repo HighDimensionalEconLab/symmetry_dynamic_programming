@@ -16,6 +16,7 @@ from pytorch_lightning.cli import LightningCLI
 from pathlib import Path
 from pytorch_lightning.loggers import WandbLogger
 
+
 class InvestmentEuler(pl.LightningModule):
     def __init__(
         self,
@@ -31,10 +32,14 @@ class InvestmentEuler(pl.LightningModule):
         # some general configuration
         verbose: bool,
         hpo_objective_name: str,
-        always_log_hpo_objective: bool,        
+        always_log_hpo_objective: bool,
         print_metrics: bool,
         save_metrics: bool,
         save_test_results: bool,
+        test_seed: int,
+        check_transversality: bool,
+        transversality_X_mean_min: float,
+        transversality_X_mean_max: float,
         # parameters for method
         omega_quadrature_nodes: int,
         normalize_shock_vector: bool,
@@ -51,21 +56,21 @@ class InvestmentEuler(pl.LightningModule):
         ml_model: torch.nn.Module,
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=["ml_model"]) # access with self.hparams.alpha, etc.
+        self.save_hyperparameters(ignore=["ml_model"])  # access with self.hparams.alpha, etc.
         self.ml_model = ml_model
         # Solves the LQ problem to find the comparison for the nu=1 case and generating simulations
         self.H_0, self.H_1 = self.investment_equilibrium_LQ()  # 1 firm is enough for
 
     # Calculates the LQ solution imposing symmetry by hand in the optimization process
     def investment_equilibrium_LQ(self):
-        B = np.array([[0.0], [1.0], [0.0]])  
+        B = np.array([[0.0], [1.0], [0.0]])
         C = np.array(
             [
                 [0.0, 0.0],
                 [self.hparams.eta, self.hparams.sigma],
                 [self.hparams.eta, self.hparams.sigma],
             ]
-        )  
+        )
         R = np.array(
             [
                 [0.0, -self.hparams.alpha_0 / 2, 0.0],
@@ -88,9 +93,7 @@ class InvestmentEuler(pl.LightningModule):
             P, F, d = lq.stationary_values()
             return np.array([F[0][0], F[0][1], F[0][2]]) - np.array([-H[0], 0.0, -H[1]])
 
-        H_opt = scipy.optimize.root(
-            F_root, [80.0, -0.2], method="lm", options={"xtol": 1.49012e-8}
-        ) 
+        H_opt = scipy.optimize.root(F_root, [80.0, -0.2], method="lm", options={"xtol": 1.49012e-8})
         if not (H_opt.success):
             sys.exit("H optimization failed to converge.")
         return H_opt.x[0], H_opt.x[1]
@@ -181,6 +184,10 @@ class InvestmentEuler(pl.LightningModule):
                                 "u_hat": u_X,
                                 "residual": residuals,
                                 "u_reference": u_linear,
+                                "X_min": batch["X_min"],
+                                "X_max": batch["X_max"],
+                                "X_mean": batch["X_mean"],
+                                "X_std": batch["X_std"],
                             }
                         )
                     ),
@@ -200,6 +207,10 @@ class InvestmentEuler(pl.LightningModule):
                                 "ensemble": batch["ensemble"],
                                 "u_hat": u_X,
                                 "residual": residuals,
+                                "X_min": batch["X_min"],
+                                "X_max": batch["X_max"],
+                                "X_mean": batch["X_mean"],
+                                "X_std": batch["X_std"],                                
                             }
                         )
                     ),
@@ -276,13 +287,26 @@ class InvestmentEuler(pl.LightningModule):
             self.val_data = self.simulate(self.hparams.val_trajectories, initial_trajectory_policy)
 
         if stage == "test" or stage is None:
+            if self.hparams.test_seed > 0:
+                pl.seed_everything(
+                    self.hparams.test_seed
+                )  # set seed separate for generating test data
+
             test_trajectories = self.hparams.test_trajectories
             # Note that this simulates with the built-in forward function itself, not the linear
             self.test_data = self.simulate(test_trajectories).reshape(
                 [test_trajectories, self.hparams.T + 1, self.hparams.N]
             )
             self.test_data = [
-                {"ensemble": n, "t": t, "X": self.test_data[n, t, :]}
+                {
+                    "ensemble": n,
+                    "t": t,
+                    "X": self.test_data[n, t, :],
+                    "X_min": self.test_data[n, t, :].min(),
+                    "X_max": self.test_data[n, t, :].max(),
+                    "X_mean": self.test_data[n, t, :].mean(),
+                    "X_std": self.test_data[n, t, :].std(),
+                }
                 for n in range(test_trajectories)
                 for t in range(self.hparams.T + 1)
             ]  # includes ensemble information for analysis
@@ -332,6 +356,20 @@ def log_and_save(trainer, model, train_time):
         # The calculated runtime with pytorch lightning + wandb has many fixed costs which throw off performance comparisons
         trainer.logger.experiment.log({"train_time": train_time})
 
+        # If it has early stopping, then log whether successful or not
+        for callback in trainer.callbacks:
+            if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
+                trainer.logger.experiment.log(
+                    {"early_stopping_monitor": callback.monitor}
+                )
+                trainer.logger.experiment.log(
+                        {"early_stopping_threshold": callback.stopping_threshold}
+                    )                
+                trainer.logger.experiment.log(
+                        {"early_stopping_success": cli.trainer.logger.experiment.summary[callback.monitor] < callback.stopping_threshold}
+                    )
+                break
+
         # Count and log the number of parameters with are trained in the neural network
         trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
         trainer.logger.experiment.log({"trainable_parameters": trainable_parameters})
@@ -362,6 +400,19 @@ def log_and_save(trainer, model, train_time):
             trainer.logger.log_text(
                 key="test_results", dataframe=trainer.model.test_results
             )  # Saves on wandb for querying later
+            # Find the mean of the X_mean field at the final time step
+            X_T_mean = trainer.model.test_results.loc[trainer.model.test_results["t"]==model.hparams.T].X_mean.mean()
+            X_T_mean_below = X_T_mean <  model.hparams.transversality_X_mean_min
+            X_T_mean_above = X_T_mean >  model.hparams.transversality_X_mean_max
+            if model.hparams.check_transversality and (X_T_mean_below or X_T_mean_above):
+                trainer.logger.experiment.log({"transversality_check_failed": True})
+            elif model.hparams.check_transversality:
+                trainer.logger.experiment.log({"transversality_check_failed": False}) # didn't fail
+            else:
+                trainer.logger.experiment.log({"transversality_check_failed": math.nan}) # didn't check
+
+                
+
 
 if __name__ == "__main__":
     cli = LightningCLI(

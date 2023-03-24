@@ -74,7 +74,11 @@ model:
   print_metrics: false
   save_metrics: false
   save_test_results: false
-
+  test_seed: 0 # set to 0 to not reseed
+  check_transversality: true
+  # if checking transversality, sees divergence of the mean(X) from iteration
+  transversality_X_mean_min: 0.1
+  transversality_X_mean_max: 10.0
 
   # Settings for method
   omega_quadrature_nodes: 7
@@ -89,7 +93,7 @@ model:
   X_0_loc: 0.9
   X_0_scale: 0.05
 
-  # Settings for deep sets neural networks
+  # # Settings for deep sets neural networks
   ml_model:
     class_path: econ_layers.layers.DeepSet
     init_args:
