@@ -68,6 +68,7 @@ plt.plot(df_identity["t"],df_identity["u_reference"], dashes=[10, 5, 10, 5],
 plt.xlabel(r"Time($t$)")
 plt.title(r"$u(X_t)$ with $\phi($Identity$)$ : Equilibrium Path")
 plt.legend(loc='best')
+
 plt.tight_layout()
 
 ax_deep = plt.subplot(132, sharey=ax_identity)
@@ -88,6 +89,63 @@ plt.legend(loc='best')
 plt.xlabel(r"Time($t$)")
 plt.title(r"$u(X_t)$ with $\phi($Moments$)$ : Equilibrium Path")
 plt.tight_layout()
+
+
+
+
+#Zoom in identity
+axins_identity = zoomed_inset_axes(ax_identity, 12, loc="center right")
+
+plt.plot(df_identity["t"], df_identity["u_hat"], color ='k',label=r"$u(X_t)$, $\phi($Identity$)$")
+plt.plot(df_identity["t"],df_identity["u_reference"], dashes=[10, 5, 10, 5],
+    label=r"$u(X_t)$, LQ")
+
+
+
+x1, x2, y1, y2 = 53, 56, 0.034, 0.0342
+axins_identity.set_xlim(x1, x2)
+axins_identity.set_ylim(y1, y2)
+axins_identity.xaxis.tick_top()
+plt.xticks(fontsize=5)
+plt.yticks(fontsize=5)
+mark_inset(ax_identity, axins_identity, loc1=2, loc2=4, linewidth="0.7",ls="--", ec="0.5")
+
+
+#Zoom in deep
+axins_deep = zoomed_inset_axes(ax_deep, 12, loc="center right")
+
+plt.plot(df_deep["t"], df_deep["u_hat"], color ='k',label=r"$u(X_t)$, $\phi($Identity$)$")
+plt.plot(df_deep["t"],df_deep["u_reference"], dashes=[10, 5, 10, 5],
+    label=r"$u(X_t)$, LQ")
+
+
+
+x1_deep, x2_deep, y1_deep, y2_deep = 53, 56, 0.034, 0.0342
+axins_deep.set_xlim(x1_deep, x2_deep)
+axins_deep.set_ylim(y1_deep, y2_deep)
+axins_deep.xaxis.tick_top()
+plt.xticks(fontsize=5)
+plt.yticks(fontsize=5)
+mark_inset(ax_deep, axins_deep, loc1=2, loc2=4, linewidth="0.7",ls="--", ec="0.5")
+
+
+#Zoom in moments
+axins_moments = zoomed_inset_axes(ax_moments, 12, loc="center right")
+
+plt.plot(df_moments["t"], df_moments["u_hat"], color ='k',label=r"$u(X_t)$, $\phi($Identity$)$")
+plt.plot(df_moments["t"],df_moments["u_reference"], dashes=[10, 5, 10, 5],
+    label=r"$u(X_t)$, LQ")
+
+
+
+x1_moments, x2_moments, y1_moments, y2_moments = 53, 56, 0.0341, 0.0343
+axins_moments.set_xlim(x1_moments, x2_moments)
+axins_moments.set_ylim(y1_moments, y2_moments)
+axins_moments.xaxis.tick_top()
+plt.xticks(fontsize=5)
+plt.yticks(fontsize=5)
+mark_inset(ax_moments, axins_moments, loc1=2, loc2=4, linewidth="0.7",ls="--", ec="0.5")
+
 
 plt.savefig(output_path)
 plt.clf()
