@@ -6,11 +6,11 @@ parameters:
     value: [baseline_deep_sets_N]
   seed:
     min: 1
-    max: 50 # number of ensembles to solve
+    max: 100 # number of ensembles to solve
   trainer.logger.offline:
     value: false # log online for W&B optimization
   trainer.max_time:
-    value: 00:00:05:00  # these tests shouldn't take more than 2-3 minutes
+    value: 00:00:05:00  # Extended the time a little longer because for large enough N it starts scaling linearly due to linear algebra operations
 
   # Stopping criteria
   trainer.callbacks.monitor:
@@ -20,5 +20,4 @@ parameters:
 
   # Core parameters which may be different from baseline investment_euler_defaults.yaml
   model.N:
-    #values: [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
-    values: [8, 32, 8192, 16384] # temp for testing
+    values: [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192] # any higher and GPUs are likely required for linear time-scaling
