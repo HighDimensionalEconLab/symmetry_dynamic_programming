@@ -1,4 +1,5 @@
 program: investment_euler.py
+description: Multiple seeds given baseline deep moments parameterization
 method: grid
 parameters:
   trainer.logger.tags:

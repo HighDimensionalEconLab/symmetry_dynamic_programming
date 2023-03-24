@@ -1,4 +1,5 @@
 program: investment_euler.py
+description: Single run with one moment with comparable aggregate and idiosyncratic shocks
 method: grid
 parameters:
   trainer.logger.tags:
