@@ -176,12 +176,12 @@ plt.tight_layout()
 median_deep = deep_table["median"]
 time_deep = deep_table["time"]
 
-time_window = [20, 30]
+time_window = [45, 55]
 ave_value = 0.5 * (median_deep[time_window[0]] + median_deep[time_window[1]])
-window_width = 0.25*ave_value
+window_width = 1.5*ave_value
 matplotlib.rcParams.update({'ytick.labelsize': 5})
 
-axins = zoomed_inset_axes(ax_deep, 4, loc="lower right")
+axins = zoomed_inset_axes(ax_deep, 4, loc="center right")
 axins.plot(time_deep, median_deep)
 plt.fill_between(time_deep, deep_table["low_quant"], deep_table["up_quant"], alpha=0.2)
 x1, x2, y1, y2 = (

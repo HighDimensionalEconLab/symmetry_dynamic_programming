@@ -139,3 +139,7 @@ metrics.yaml
 test_results.csv
 wandb/
 generalized_mean_examples
+
+# files
+*.pdf 
+*.json
