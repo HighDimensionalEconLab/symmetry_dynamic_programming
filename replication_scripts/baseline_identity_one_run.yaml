@@ -3,7 +3,7 @@ description: Single run with one moment with comparable aggregate and idiosyncra
 method: grid
 parameters:
   trainer.logger.tags:
-    value: [baseline_identity_1_run]
+    value: [baseline_identity_I_run]
   seed:
     value: 123 
   trainer.logger.offline:
@@ -41,3 +41,5 @@ parameters:
     value: true
   model.ml_model.init_args.rho_activator.class_path:
     value: torch.nn.ReLU
+  model.test_seed:
+    value: 10

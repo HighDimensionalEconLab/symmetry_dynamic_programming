@@ -3,7 +3,7 @@ description: Single run with deep sets with comparable aggregate and idiosyncrat
 method: grid
 parameters:
   trainer.logger.tags:
-    value: [baseline_deep_sets_1_run]
+    value: [baseline_deep_sets_I_run]
   seed:
     value: 123 
 
@@ -24,3 +24,5 @@ parameters:
   # Core parameters which may be different from baseline investment_euler_defaults.yaml
   model.N:
     value: 128
+  model.test_seed:
+    value: 10
