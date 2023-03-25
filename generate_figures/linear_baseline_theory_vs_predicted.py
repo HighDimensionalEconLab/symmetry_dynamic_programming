@@ -9,8 +9,7 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
 fontsize = 10
 ticksize = 14
-figsize = (10, 3.5)
-
+figsize = (6, 3.5)
 params = {
     "text.usetex": True,
     "font.family": "serif",
@@ -49,103 +48,52 @@ def first_satisfying_run(summary_value, threshold, tag):
                 data = pd.DataFrame(data = get.data, columns = get.columns)
                 return(data)
 
-
-
-df_deep = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_sets_1_run")
+df_deep = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_sets_I_run")
 df_deep = df_deep[df_deep["ensemble"] == 0]
-df_moments = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_moments_1_run")
+df_moments = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_moments_I_run")
 df_moments = df_moments[df_moments["ensemble"] == 0]
-df_identity = first_satisfying_run("test_u_rel_error", 0.005, "baseline_identity_1_run")
+df_identity = first_satisfying_run("test_u_rel_error", 0.005, "baseline_identity_I_run")
 df_identity = df_identity[df_identity["ensemble"] == 0]
 
 
 plt.rcParams.update(params)
 
-ax_identity = plt.subplot(131)
-plt.plot(df_identity["t"], df_identity["u_hat"], color ='k',label=r"$u(X_t)$, $\phi($Identity$)$")
-plt.plot(df_identity["t"],df_identity["u_reference"], dashes=[10, 5, 10, 5],
-    label=r"$u(X_t)$, LQ")
+fig, ax = plt.subplots()
+plt.plot(
+    df_deep["t"],
+    df_deep["u_reference"],
+    dashes=[10, 5, 10, 5],
+    label=r"$u(X_t)$, LQ",
+)
+plt.plot(df_identity["t"], df_identity["u_hat"], label=r"$u(X_t)$, $\phi($Identity$)$")
+plt.plot(df_moments["t"], df_moments["u_hat"], label=r"$u(X_t)$, $\phi$(Moments$)$")
+plt.plot(df_deep["t"], df_deep["u_hat"], label=r"$u(X_t)$, $\phi($ReLU$)$")
+plt.legend(prop={"size": fontsize})
+plt.title(r"$u(X_t)$ with $\phi($Identity$)$, $\phi($Moments$)$ and $\phi($ReLU$)$ : Equilibrium Path")
+plt.tight_layout()
 plt.xlabel(r"Time($t$)")
-plt.title(r"$u(X_t)$ with $\phi($Identity$)$ : Equilibrium Path")
-plt.legend(loc='best')
-
 plt.tight_layout()
 
-ax_deep = plt.subplot(132, sharey=ax_identity)
-plt.plot(df_deep["t"], df_deep["u_hat"],color ='k', label=r"$u(X_t)$, $\phi($ReLU$)$")
-plt.plot(df_deep["t"],df_deep["u_reference"],dashes=[10, 5, 10, 5],
-    label=r"$u(X_t)$, LQ")
-plt.xlabel(r"Time($t$)")
-plt.title(r"$u(X_t)$ with $\phi($ReLU$)$ : Equilibrium Path")
-plt.legend(loc='best')
+axins = zoomed_inset_axes(ax, 12, loc="center")
 
-plt.tight_layout()
+plt.plot(
+    df_deep["t"],
+    df_deep["u_reference"],
+    dashes=[10, 5, 10, 5],
+    label=r"$u(X_t)$, LQ",
+)
 
-ax_moments = plt.subplot(133, sharey=ax_identity)
-plt.plot(df_moments["t"], df_moments["u_hat"], color ='k', label=r"$u(X_t)$, $\phi$(Moments$)$")
-plt.plot(df_moments["t"], df_moments["u_reference"],dashes=[10, 5, 10, 5],
-    label=r"$u(X_t)$, LQ")
-plt.legend(loc='best')
-plt.xlabel(r"Time($t$)")
-plt.title(r"$u(X_t)$ with $\phi($Moments$)$ : Equilibrium Path")
-plt.tight_layout()
+plt.plot(df_identity["t"], df_identity["u_hat"], label=r"$u(X_t)$, $\phi($Identity$)$")
+plt.plot(df_moments["t"], df_moments["u_hat"], label=r"$u(X_t)$, $\phi$(Moments$)$")
+plt.plot(df_deep["t"], df_deep["u_hat"], label=r"$u(X_t)$, $\phi($ReLU$)$")
 
-
-
-
-#Zoom in identity
-axins_identity = zoomed_inset_axes(ax_identity, 12, loc="center right")
-
-plt.plot(df_identity["t"], df_identity["u_hat"], color ='k',label=r"$u(X_t)$, $\phi($Identity$)$")
-plt.plot(df_identity["t"],df_identity["u_reference"], dashes=[10, 5, 10, 5],
-    label=r"$u(X_t)$, LQ")
-
-
-
-x1, x2, y1, y2 = 53, 56, 0.034, 0.0342
-axins_identity.set_xlim(x1, x2)
-axins_identity.set_ylim(y1, y2)
-axins_identity.xaxis.tick_top()
+x1, x2, y1, y2 = 42.5, 44.5, 0.03415, 0.03435
+axins.set_xlim(x1, x2)
+axins.set_ylim(y1, y2)
+axins.xaxis.tick_top()
 plt.xticks(fontsize=5)
 plt.yticks(fontsize=5)
-mark_inset(ax_identity, axins_identity, loc1=2, loc2=4, linewidth="0.7",ls="--", ec="0.5")
-
-
-#Zoom in deep
-axins_deep = zoomed_inset_axes(ax_deep, 12, loc="center right")
-
-plt.plot(df_deep["t"], df_deep["u_hat"], color ='k',label=r"$u(X_t)$, $\phi($Identity$)$")
-plt.plot(df_deep["t"],df_deep["u_reference"], dashes=[10, 5, 10, 5],
-    label=r"$u(X_t)$, LQ")
-
-
-
-x1_deep, x2_deep, y1_deep, y2_deep = 53, 56, 0.034, 0.0342
-axins_deep.set_xlim(x1_deep, x2_deep)
-axins_deep.set_ylim(y1_deep, y2_deep)
-axins_deep.xaxis.tick_top()
-plt.xticks(fontsize=5)
-plt.yticks(fontsize=5)
-mark_inset(ax_deep, axins_deep, loc1=2, loc2=4, linewidth="0.7",ls="--", ec="0.5")
-
-
-#Zoom in moments
-axins_moments = zoomed_inset_axes(ax_moments, 12, loc="center right")
-
-plt.plot(df_moments["t"], df_moments["u_hat"], color ='k',label=r"$u(X_t)$, $\phi($Identity$)$")
-plt.plot(df_moments["t"],df_moments["u_reference"], dashes=[10, 5, 10, 5],
-    label=r"$u(X_t)$, LQ")
-
-
-
-x1_moments, x2_moments, y1_moments, y2_moments = 53, 56, 0.0341, 0.0343
-axins_moments.set_xlim(x1_moments, x2_moments)
-axins_moments.set_ylim(y1_moments, y2_moments)
-axins_moments.xaxis.tick_top()
-plt.xticks(fontsize=5)
-plt.yticks(fontsize=5)
-mark_inset(ax_moments, axins_moments, loc1=2, loc2=4, linewidth="0.7",ls="--", ec="0.5")
-
+mark_inset(ax, axins, loc1=2, loc2=4, linewidth="0.7",ls="--", ec="0.5")
 
 plt.savefig(output_path)
 plt.clf()
