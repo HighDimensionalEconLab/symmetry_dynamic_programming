@@ -19,6 +19,6 @@ For slower experiments (e.g the `baseline_deep_sets_N`), you can run multiple ag
 In bash (or with Git bash for Windows) in the main folder, run `./run_all_sequential.sh`
 
    - The script creates all of the sweep files, then automatically runs a sweep agent (in serial)
-   - That will be very slow (e.g. days) since it is doing all experiments serially, and thereare many ensembles and seeds executed
-   - But you can modify to  
+   - That will be very slow (e.g. days) since it is doing all experiments serially, and there are many ensembles and seeds executed
+   - But you can modify as required to only use a subset of the files.
 
