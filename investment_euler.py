@@ -38,6 +38,7 @@ class InvestmentEuler(pl.LightningModule):
         save_test_results: bool,
         test_seed: int,
         check_transversality: bool,
+        test_loss_success_threshold: float,
         transversality_X_mean_min: float,
         transversality_X_mean_max: float,
         transversality_u_rel_error: float,
@@ -358,21 +359,16 @@ def log_and_save(trainer, model, train_time):
         trainer.logger.experiment.log({"train_time": train_time})
 
         # If it has early stopping, then log whether successful or not
+        early_stopping_check_failed = math.nan
         for callback in trainer.callbacks:
             if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
                 trainer.logger.experiment.log({"early_stopping_monitor": callback.monitor})
                 trainer.logger.experiment.log(
                     {"early_stopping_threshold": callback.stopping_threshold}
                 )
-                trainer.logger.experiment.log(
-                    {
-                        "early_stopping_success": cli.trainer.logger.experiment.summary[
-                            callback.monitor
-                        ]
-                        < callback.stopping_threshold
-                    }
-                )
+                early_stopping_check_failed = (cli.trainer.logger.experiment.summary[callback.monitor] > callback.stopping_threshold)
                 break
+        trainer.logger.experiment.log({"early_stopping_check_failed": early_stopping_check_failed})
 
         # Count and log the number of parameters with are trained in the neural network
         trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -422,6 +418,12 @@ def log_and_save(trainer, model, train_time):
             else:
                 trainer.logger.experiment.log({"transversality_check_failed": math.nan})
 
+            if model.hparams.test_loss_success_threshold == 0:
+                trainer.logger.experiment.log({"test_loss_check_failed": math.nan})
+            elif cli.trainer.logger.experiment.summary["test_loss"] > model.hparams.test_loss_success_threshold:
+                trainer.logger.experiment.log({"test_loss_check_failed": True})
+            else:
+                trainer.logger.experiment.log({"test_loss_check_failed": False})
 
 if __name__ == "__main__":
     cli = LightningCLI(
