@@ -6,7 +6,7 @@ parameters:
     value: [baseline_deep_moments]
   seed:
     min: 1
-    max: 50 # number of ensembles to solve
+    max: 100 # number of ensembles to solve
   trainer.logger.offline:
     value: false # log online for W&B optimization
   trainer.max_time:
