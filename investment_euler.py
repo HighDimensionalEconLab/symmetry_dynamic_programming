@@ -366,7 +366,10 @@ def log_and_save(trainer, model, train_time):
                 trainer.logger.experiment.log(
                     {"early_stopping_threshold": callback.stopping_threshold}
                 )
-                early_stopping_check_failed = (cli.trainer.logger.experiment.summary[callback.monitor] > callback.stopping_threshold)
+                early_stopping_check_failed = (
+                    cli.trainer.logger.experiment.summary[callback.monitor]
+                    > callback.stopping_threshold
+                )
                 break
         trainer.logger.experiment.log({"early_stopping_check_failed": early_stopping_check_failed})
 
@@ -409,7 +412,10 @@ def log_and_save(trainer, model, train_time):
                 X_T_mean_above = X_T_mean > model.hparams.transversality_X_mean_max
 
                 # if nu = 1 it is more robust to check the u_rel_error, otherwise assume T is large enough that divergence would occur for X_T
-                if (model.hparams.nu == 1) and (cli.trainer.logger.experiment.summary["test_u_rel_error"] > trainer.model.hparams.transversality_u_rel_error):
+                if (model.hparams.nu == 1) and (
+                    cli.trainer.logger.experiment.summary["test_u_rel_error"]
+                    > trainer.model.hparams.transversality_u_rel_error
+                ):
                     trainer.logger.experiment.log({"transversality_check_failed": True})
                 elif model.hparams.nu != 1 and (X_T_mean_below or X_T_mean_above):
                     trainer.logger.experiment.log({"transversality_check_failed": True})
@@ -420,10 +426,37 @@ def log_and_save(trainer, model, train_time):
 
             if model.hparams.test_loss_success_threshold == 0:
                 trainer.logger.experiment.log({"test_loss_check_failed": math.nan})
-            elif cli.trainer.logger.experiment.summary["test_loss"] > model.hparams.test_loss_success_threshold:
+            elif (
+                cli.trainer.logger.experiment.summary["test_loss"]
+                > model.hparams.test_loss_success_threshold
+            ):
                 trainer.logger.experiment.log({"test_loss_check_failed": True})
             else:
                 trainer.logger.experiment.log({"test_loss_check_failed": False})
+
+            # Summarize the convergence description given these checks
+            # In all cases, if check is skipped it is assumed true.
+            early_stopping_success = cli.trainer.logger.experiment.summary[
+                "early_stopping_check_failed"
+            ] in [False, math.nan]
+            transversality_success = cli.trainer.logger.experiment.summary[
+                "transversality_check_failed"
+            ] in [False, math.nan]
+            test_loss_success = cli.trainer.logger.experiment.summary["test_loss_check_failed"] in [
+                False,
+                math.nan,
+            ]
+            if not early_stopping_success:
+                trainer.logger.experiment.log({"solution_summary": "convergence failed"})
+            elif not test_loss_success:
+                trainer.logger.experiment.log({"solution_summary": "potential overfitting"})
+            elif not transversality_success:
+                trainer.logger.experiment.log(
+                    {"solution_summary": "potential transversality failure"}
+                )
+            else:
+                trainer.logger.experiment.log({"solution_summary": "success"})
+
 
 if __name__ == "__main__":
     cli = LightningCLI(
