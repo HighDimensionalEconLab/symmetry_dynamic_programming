@@ -363,6 +363,20 @@ def log_and_save(trainer, model, train_time):
         else:
             hpo_objective_value = math.nan
 
+        # Valid numeric types
+        def not_number_type(value):
+            if value is None:
+                return True
+
+            if not isinstance(value, (int, float)):
+                return True
+
+            if math.isnan(value) or math.isinf(value):
+                return True
+
+            return False # otherwise a valid, non-infinite number
+
+
         # If early stopping, evaluate success
         early_stopping_check_failed = math.nan
         early_stopping_monitor = ""
@@ -371,7 +385,7 @@ def log_and_save(trainer, model, train_time):
             if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
                 early_stopping_monitor = callback.monitor
                 early_stopping_threshold = callback.stopping_threshold
-                early_stopping_check_failed = (
+                early_stopping_check_failed = not_number_type(cli.trainer.logger.experiment.summary[callback.monitor]) or (
                     cli.trainer.logger.experiment.summary[callback.monitor]
                     > callback.stopping_threshold
                 )
@@ -385,13 +399,17 @@ def log_and_save(trainer, model, train_time):
         if not model.hparams.check_transversality:
             transversality_check_failed = math.nan
         elif (model.hparams.nu == 1) and (
-            cli.trainer.logger.experiment.summary["test_u_rel_error"]
-            > trainer.model.hparams.transversality_u_rel_error
+            not_number_type(cli.trainer.logger.experiment.summary["val_u_rel_error"])
+            or (
+                cli.trainer.logger.experiment.summary["val_u_rel_error"]  # known at validation time
+                > trainer.model.hparams.transversality_u_rel_error
+            )
         ):
             transversality_check_failed = True
-        elif model.hparams.nu != 1 and (
-            X_T_mean < model.hparams.transversality_X_mean_min
-            or model.hparams.transversality_X_mean_max
+        elif (model.hparams.nu != 1) and (
+            not_number_type(cli.trainer.logger.experiment.summary["X_T_mean"])
+            or (X_T_mean < model.hparams.transversality_X_mean_min)
+            or (X_T_mean > model.hparams.transversality_X_mean_max)
         ):
             transversality_check_failed = True
         else:
@@ -400,7 +418,7 @@ def log_and_save(trainer, model, train_time):
         # Check test loss
         if model.hparams.test_loss_success_threshold == 0:
             test_loss_check_failed = math.nan
-        elif (
+        elif not_number_type(cli.trainer.logger.experiment.summary["test_loss"]) or (
             cli.trainer.logger.experiment.summary["test_loss"]
             > model.hparams.test_loss_success_threshold
         ):
@@ -419,12 +437,12 @@ def log_and_save(trainer, model, train_time):
         elif early_stopping_check_failed == True:
             retcode = -1
             convergence_description = "Early stopping failure"
-        elif test_loss_check_failed == True:
-            retcode = -2
-            convergence_description = "Test loss failure due to possible overfitting."
         elif transversality_check_failed == True:
+            retcode = -2
+            convergence_description = "Transversality check failure"  # possible due to finding wrote root but could also be other issues which manifest as a transversality violation
+        elif test_loss_check_failed == True:
             retcode = -3
-            convergence_description = "Transversality check failure"
+            convergence_description = "Test loss failure due to possible overfitting."  # if nu != 1 but T was set low, this might also be due to transversality failures
         else:
             retcode = -100
             convergence_description = " Unknown failure"
@@ -459,6 +477,7 @@ def log_and_save(trainer, model, train_time):
 
         if model.hparams.print_metrics:
             print(dict(cli.trainer.logger.experiment.summary))
+        return
     else:  # almost no features enabled for other loggers. Could refactor later
         if model.hparams.save_test_results and trainer.log_dir is not None:
             model.test_results.to_csv(Path(trainer.log_dir) / "test_results.csv", index=False)
