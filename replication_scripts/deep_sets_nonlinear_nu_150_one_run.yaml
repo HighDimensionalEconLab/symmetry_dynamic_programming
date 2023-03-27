@@ -1,9 +1,10 @@
 program: investment_euler.py
+name: deep_sets_nonlinear_nu_130_one_run
 description: Multiple seeds given baseline deep sets parameterization
 method: grid
 parameters:
   trainer.logger.tags:
-    value: [deep_sets_nonlinear_nu_150_I_run]
+    value: [deep_sets_nonlinear_nu_150_one_run]
   seed:
     value: 123 # number of ensembles to solve
     

@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: L_8_deep_sets
 description: Multiple seeds deep sets parameterization with L=8
 method: grid
 parameters:

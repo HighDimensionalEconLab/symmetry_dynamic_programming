@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: baseline_deep_moments
 description: Multiple seeds given baseline deep moments parameterization
 method: grid
 parameters:

@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: baseline_identity
 description: Multiple seeds given baseline single moment parameterization
 method: grid
 parameters:

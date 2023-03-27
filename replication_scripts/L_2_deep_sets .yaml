@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: L_2_deep_sets
 description: Multiple seeds deep sets parameterization with L=2
 method: grid
 parameters:

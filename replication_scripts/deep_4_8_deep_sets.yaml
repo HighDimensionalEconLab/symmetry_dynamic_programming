@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: deep_4_8_deep_sets
 description: Multiple seeds deep sets with 4 layers for phi and 8 for rho
 method: grid
 parameters:

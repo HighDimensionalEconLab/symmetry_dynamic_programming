@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: baseline_deep_sets_N
 description: Multiple seeds for different N with the baseline deep sets parameterization
 method: grid
 parameters:

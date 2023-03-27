@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: thin_64_deep_sets
 description: Multiple seeds deep sets 64 wide for all
 method: grid
 parameters:

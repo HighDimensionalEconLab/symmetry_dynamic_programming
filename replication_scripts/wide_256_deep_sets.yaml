@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: wide_256_deep_sets
 description: Multiple seeds deep sets 256 wide for all
 method: grid
 parameters:

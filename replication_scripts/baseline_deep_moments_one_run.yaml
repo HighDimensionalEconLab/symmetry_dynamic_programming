@@ -1,4 +1,5 @@
 program: investment_euler.py
+name: baseline_deep_moments_I_run
 description: Single run with deep moments with comparable aggregate and idiosyncratic shocks
 method: grid
 parameters:
