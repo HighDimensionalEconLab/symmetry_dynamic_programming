@@ -1,9 +1,10 @@
 program: investment_euler.py
+name: baseline_identity_one_run
 description: Single run with one moment with comparable aggregate and idiosyncratic shocks
 method: grid
 parameters:
   trainer.logger.tags:
-    value: [baseline_identity_I_run]
+    value: [baseline_identity_one_run]
   seed:
     value: 123 
   trainer.logger.offline:

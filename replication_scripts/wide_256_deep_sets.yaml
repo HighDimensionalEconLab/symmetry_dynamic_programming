@@ -1,24 +1,33 @@
 program: investment_euler.py
-name: baseline_deep_sets_N
-description: Multiple seeds for different N with the baseline deep sets parameterization
+name: wide_256_deep_sets
+description: Multiple seeds deep sets 256 wide for all
 method: grid
 parameters:
   trainer.logger.tags:
-    value: [baseline_deep_sets_N]
+    value: [wide_256_deep_sets]
   seed:
     min: 1
     max: 100 # number of ensembles to solve
   trainer.logger.offline:
     value: false # log online for W&B optimization
   trainer.max_time:
-    value: 00:00:05:00  # Extended the time a little longer because for large enough N it starts scaling linearly due to linear algebra operations
+    value: 00:00:10:00
 
   # Stopping criteria
   trainer.callbacks.monitor:
     value: val_loss
   trainer.callbacks.stopping_threshold:
     value: 1.0e-6
+  #Learning rate
+  #optimizer.lr:
+    #value: 1.0e-4
 
   # Core parameters which may be different from baseline investment_euler_defaults.yaml
   model.N:
-    values: [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192] # any higher and GPUs are likely required for linear time-scaling
+    value: 128
+
+  # Variation on parameters for experiment
+  model.ml_model.phi_hidden_dim:
+    value: 256
+  model.ml_model.rho_hidden_dim:
+    value: 256

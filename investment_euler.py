@@ -38,6 +38,7 @@ class InvestmentEuler(pl.LightningModule):
         save_test_results: bool,
         test_seed: int,
         check_transversality: bool,
+        test_loss_success_threshold: float,
         transversality_X_mean_min: float,
         transversality_X_mean_max: float,
         transversality_u_rel_error: float,
@@ -351,44 +352,122 @@ class InvestmentEuler(pl.LightningModule):
 
 
 def log_and_save(trainer, model, train_time):
-    if model.hparams.save_test_results and trainer.log_dir is not None:
-        model.test_results.to_csv(Path(trainer.log_dir) / "test_results.csv", index=False)
     if type(trainer.logger) is WandbLogger:
-        # The calculated runtime with pytorch lightning + wandb has many fixed costs which throw off performance comparisons
-        trainer.logger.experiment.log({"train_time": train_time})
+        trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-        # If it has early stopping, then log whether successful or not
+        # Objective value given in the settings, or empty
+        if model.hparams.hpo_objective_name is not None:
+            hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
+                model.hparams.hpo_objective_name
+            ]
+        else:
+            hpo_objective_value = math.nan
+
+        # Valid numeric types
+        def not_number_type(value):
+            if value is None:
+                return True
+
+            if not isinstance(value, (int, float)):
+                return True
+
+            if math.isnan(value) or math.isinf(value):
+                return True
+
+            return False # otherwise a valid, non-infinite number
+
+
+        # If early stopping, evaluate success
+        early_stopping_check_failed = math.nan
+        early_stopping_monitor = ""
+        early_stopping_threshold = math.nan
         for callback in trainer.callbacks:
             if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
-                trainer.logger.experiment.log({"early_stopping_monitor": callback.monitor})
-                trainer.logger.experiment.log(
-                    {"early_stopping_threshold": callback.stopping_threshold}
-                )
-                trainer.logger.experiment.log(
-                    {
-                        "early_stopping_success": cli.trainer.logger.experiment.summary[
-                            callback.monitor
-                        ]
-                        < callback.stopping_threshold
-                    }
+                early_stopping_monitor = callback.monitor
+                early_stopping_threshold = callback.stopping_threshold
+                early_stopping_check_failed = not_number_type(cli.trainer.logger.experiment.summary[callback.monitor]) or (
+                    cli.trainer.logger.experiment.summary[callback.monitor]
+                    > callback.stopping_threshold
                 )
                 break
 
-        # Count and log the number of parameters with are trained in the neural network
-        trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        # Check transversality
+        X_T_mean = trainer.model.test_results.loc[
+            trainer.model.test_results["t"] == model.hparams.T
+        ].X_mean.mean()
+        # if nu = 1 it is more robust to check the u_rel_error, otherwise assume T is large enough that divergence would occur for X_T
+        if not model.hparams.check_transversality:
+            transversality_check_failed = math.nan
+        elif (model.hparams.nu == 1) and (
+            not_number_type(cli.trainer.logger.experiment.summary["val_u_rel_error"])
+            or (
+                cli.trainer.logger.experiment.summary["val_u_rel_error"]  # known at validation time
+                > trainer.model.hparams.transversality_u_rel_error
+            )
+        ):
+            transversality_check_failed = True
+        elif (model.hparams.nu != 1) and (
+            not_number_type(cli.trainer.logger.experiment.summary["X_T_mean"])
+            or (X_T_mean < model.hparams.transversality_X_mean_min)
+            or (X_T_mean > model.hparams.transversality_X_mean_max)
+        ):
+            transversality_check_failed = True
+        else:
+            transversality_check_failed = False
+
+        # Check test loss
+        if model.hparams.test_loss_success_threshold == 0:
+            test_loss_check_failed = math.nan
+        elif not_number_type(cli.trainer.logger.experiment.summary["test_loss"]) or (
+            cli.trainer.logger.experiment.summary["test_loss"]
+            > model.hparams.test_loss_success_threshold
+        ):
+            test_loss_check_failed = True
+        else:
+            test_loss_check_failed = False
+
+        # Determine convergence results
+        if (
+            early_stopping_check_failed in [False, math.nan]
+            and transversality_check_failed in [False, math.nan]
+            and test_loss_check_failed in [False, math.nan]
+        ):
+            retcode = 0
+            convergence_description = "Success"
+        elif early_stopping_check_failed == True:
+            retcode = -1
+            convergence_description = "Early stopping failure"
+        elif transversality_check_failed == True:
+            retcode = -2
+            convergence_description = "Transversality check failure"  # possible due to finding wrote root but could also be other issues which manifest as a transversality violation
+        elif test_loss_check_failed == True:
+            retcode = -3
+            convergence_description = "Test loss failure due to possible overfitting."  # if nu != 1 but T was set low, this might also be due to transversality failures
+        else:
+            retcode = -100
+            convergence_description = " Unknown failure"
+
+        # Log all calculated results
+        trainer.logger.experiment.log({"train_time": train_time})
+        trainer.logger.experiment.log({"early_stopping_monitor": early_stopping_monitor})
+        trainer.logger.experiment.log({"early_stopping_threshold": early_stopping_threshold})
+        trainer.logger.experiment.log({"early_stopping_check_failed": early_stopping_check_failed})
+        trainer.logger.experiment.log({"transversality_check_failed": transversality_check_failed})
+        trainer.logger.experiment.log({"test_loss_check_failed": test_loss_check_failed})
         trainer.logger.experiment.log({"trainable_parameters": trainable_parameters})
+        trainer.logger.experiment.log({"retcode": retcode})
+        trainer.logger.experiment.log({"convergence_description": convergence_description})
 
-        # Set objective for hyperparameter optimization.
-        hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
-            model.hparams.hpo_objective_name
-        ]
-
-        if model.hparams.always_log_hpo_objective:
-            trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
-        elif trainer.current_epoch < trainer.max_epochs:
+        # Set objective for hyperparameter optimization
+        if model.hparams.always_log_hpo_objective or retcode >= 0:
             trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
         else:
             trainer.logger.experiment.log({"hpo_objective": math.nan})
+
+        # Save test results
+        trainer.logger.log_text(
+            key="test_results", dataframe=trainer.model.test_results
+        )  # Saves on wandb for querying later
 
         # save the summary statistics in a file
         if model.hparams.save_metrics and trainer.log_dir is not None:
@@ -398,29 +477,10 @@ def log_and_save(trainer, model, train_time):
 
         if model.hparams.print_metrics:
             print(dict(cli.trainer.logger.experiment.summary))
-
-        # Store the test_results field from model if it exists
-        if hasattr(model, "test_results"):
-            trainer.logger.log_text(
-                key="test_results", dataframe=trainer.model.test_results
-            )  # Saves on wandb for querying later
-            if model.hparams.check_transversality:
-                # calculates mean of the last time step across all trajectories
-                X_T_mean = trainer.model.test_results.loc[
-                    trainer.model.test_results["t"] == model.hparams.T
-                ].X_mean.mean()
-                X_T_mean_below = X_T_mean < model.hparams.transversality_X_mean_min
-                X_T_mean_above = X_T_mean > model.hparams.transversality_X_mean_max
-
-                # if nu = 1 it is more robust to check the u_rel_error, otherwise assume T is large enough that divergence would occur for X_T
-                if (model.hparams.nu == 1) and (cli.trainer.logger.experiment.summary["test_u_rel_error"] > trainer.model.hparams.transversality_u_rel_error):
-                    trainer.logger.experiment.log({"transversality_check_failed": True})
-                elif model.hparams.nu != 1 and (X_T_mean_below or X_T_mean_above):
-                    trainer.logger.experiment.log({"transversality_check_failed": True})
-                else:
-                    trainer.logger.experiment.log({"transversality_check_failed": False})
-            else:
-                trainer.logger.experiment.log({"transversality_check_failed": math.nan})
+        return
+    else:  # almost no features enabled for other loggers. Could refactor later
+        if model.hparams.save_test_results and trainer.log_dir is not None:
+            model.test_results.to_csv(Path(trainer.log_dir) / "test_results.csv", index=False)
 
 
 if __name__ == "__main__":

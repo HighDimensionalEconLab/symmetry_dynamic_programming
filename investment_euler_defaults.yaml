@@ -80,6 +80,7 @@ model:
   transversality_X_mean_min: 0.1
   transversality_X_mean_max: 10.0
   transversality_u_rel_error: 0.2 # if nu = 1, checks relative error of test. defaults to 20% deviation
+  test_loss_success_threshold: 1e-4 # typically failures of overfitting are far above this
 
 
   # Settings for method
