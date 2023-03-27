@@ -25,8 +25,7 @@ run_sweep_and_agent () {
   wandb agent $SWEEP_ID
 }
 
-# Call experiments sequentially.  VERY SLOW
-# baseline_deep_sets_N is left out for now due to the large number of experiments
+# Call experiments sequentially.  VERY SLOW given large number of experiments
 
 # Primary examples with multiple seeds 
 run_sweep_and_agent "baseline_deep_sets"
@@ -41,3 +40,13 @@ run_sweep_and_agent "baseline_identity"
 # run_sweep_and_agent "deep_sets_nonlinear_nu_150_one_run"
 
 # Additional robustness tables
+run_sweep_and_agent "L_2_deep_sets"
+run_sweep_and_agent "L_8_deep_sets"
+run_sweep_and_agent "L_16_deep_sets"
+run_sweep_and_agent "shallow_1_2_deep_sets"
+run_sweep_and_agent "deep_4_8_deep_sets"
+run_sweep_and_agent "wide_256_deep_sets"
+run_sweep_and_agent "thin_64_deep_sets"
+
+# This can take a day given the massive number of variations tested
+# run_sweep_and_agent "baseline_deep_sets_N"

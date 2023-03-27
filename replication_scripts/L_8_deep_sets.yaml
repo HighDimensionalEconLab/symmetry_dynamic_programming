@@ -1,0 +1,30 @@
+program: investment_euler.py
+description: Multiple seeds deep sets parameterization with L=8
+method: grid
+parameters:
+  trainer.logger.tags:
+    value: [L_8_deep_sets]
+  seed:
+    min: 1
+    max: 100 # number of ensembles to solve
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:10:00
+
+  # Stopping criteria
+  trainer.callbacks.monitor:
+    value: val_loss
+  trainer.callbacks.stopping_threshold:
+    value: 1.0e-6
+  #Learning rate
+  #optimizer.lr:
+    #value: 1.0e-4
+
+  # Core parameters which may be different from baseline investment_euler_defaults.yaml
+  model.N:
+    value: 128
+
+  # Variation on parameters for experiment
+  model.ml_model.L:
+    value: 8
