@@ -69,7 +69,7 @@ quantiles= [0.1,0.25,0.5,0.75,0.9]
 
 #1. deepsets
 
-df_deep = satisfying_runs("baseline_nonlinear_deep_sets") #replace it with the deep set nonlinear
+df_deep = satisfying_runs("baseline_nonlinear_deep_sets") 
 df_deep_0 = df_deep[df_deep['retcode']>=0]
 quant_result_deep = df_deep_0.groupby('t').quantile(quantiles)['residual'].unstack(level=-1)
 quant_result_deep.reset_index(inplace=True)
@@ -77,7 +77,7 @@ quant_result_deep.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
 #2. moments
 
-df_moments = satisfying_runs("baseline_nonlinear_deep_moments") #replace it with the deep set nonlinear
+df_moments = satisfying_runs("baseline_nonlinear_deep_moments") 
 
 df_moments_0 = df_moments[df_moments['retcode']>=0] #Picking those that converged
 quant_result_moments = df_moments_0.groupby('t').quantile(quantiles)['residual'].unstack(level=-1)
