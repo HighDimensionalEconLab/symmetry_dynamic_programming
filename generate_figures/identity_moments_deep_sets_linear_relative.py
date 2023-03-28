@@ -121,7 +121,7 @@ plt.xlabel(r"Time($t$)")
 plt.legend(prop={"size": fontsize}, loc='lower left')
 plt.tight_layout()
 
-ax_deep = plt.subplot(133, sharey=ax_moments)
+ax_deep = plt.subplot(133, sharey=ax_identity)
 plt.plot(quant_result_deep["t"], quant_result_deep["quantile_0.5"], color= 'black', label = r"Median")
 plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.1"], quant_result_deep["quantile_0.9"],color='gray', alpha=0.2, label= r"$10$th and $90$th percentiles")
 plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.25"], quant_result_deep["quantile_0.75"],color='gray', alpha=0.6, label= r"$25$th and $75$th percentiles")
