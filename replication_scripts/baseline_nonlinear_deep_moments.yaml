@@ -1,0 +1,55 @@
+program: investment_euler.py
+name: baseline_nonlinear_deep_moments
+description: Multiple seeds given baseline deep moments parameterization
+method: grid
+parameters:
+  trainer.logger.tags:
+    value: [baseline_nonlinear_deep_moments]
+  seed:
+    min: 1
+    max: 100 # number of ensembles to solve
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:03:00  # these tests shouldn't take more than 2-3 minutes
+  
+  # Stopping criteria
+  trainer.callbacks.monitor:
+    value: val_loss
+  trainer.callbacks.stopping_threshold:
+    value: 1.0e-6
+  #Learning rate
+
+  model.reset_trajectories_frequency:
+    value: 5 # otherwise sticks with linear until the test set
+  optimizer.lr:
+    value: 1.0e-4
+  lr_scheduler.step_size:
+    value: 10
+  lr_scheduler.gamma:
+    value: 0.8
+
+  # Core parameters which may be different from baseline investment_euler_defaults.yaml
+  model.N:
+    value: 128
+  model.nu:
+    value: 1.3
+
+  model.ml_model.class_path:
+    value: econ_layers.layers.DeepSetMoments
+  model.ml_model.init_args.L:
+    value: 4    
+  model.ml_model.init_args.n_in:
+    value: 1
+  model.ml_model.init_args.n_out:
+    value: 1
+  model.ml_model.init_args.rho_layers:
+    value: 4
+  model.ml_model.init_args.rho_hidden_dim:
+    value: 128
+  model.ml_model.init_args.rho_hidden_bias:
+    value: true
+  model.ml_model.init_args.rho_last_bias:
+    value: true
+  model.ml_model.init_args.rho_activator.class_path:
+    value: torch.nn.ReLU

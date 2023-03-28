@@ -397,6 +397,7 @@ def log_and_save(trainer, model, train_time):
         X_T_mean = trainer.model.test_results.loc[
             trainer.model.test_results["t"] == model.hparams.T
         ].X_mean.mean()
+        
         # if nu = 1 it is more robust to check the u_rel_error, otherwise assume T is large enough that divergence would occur for X_T
         if not model.hparams.check_transversality:
             transversality_check_failed = math.nan
@@ -409,7 +410,7 @@ def log_and_save(trainer, model, train_time):
         ):
             transversality_check_failed = True
         elif (model.hparams.nu != 1) and (
-            not_number_type(cli.trainer.logger.experiment.summary["X_T_mean"])
+            not_number_type(X_T_mean)
             or (X_T_mean < model.hparams.transversality_X_mean_min)
             or (X_T_mean > model.hparams.transversality_X_mean_max)
         ):
@@ -459,6 +460,7 @@ def log_and_save(trainer, model, train_time):
         trainer.logger.experiment.log({"trainable_parameters": trainable_parameters})
         trainer.logger.experiment.log({"retcode": retcode})
         trainer.logger.experiment.log({"convergence_description": convergence_description})
+        trainer.logger.experiment.log({"X_T_mean": X_T_mean})        
 
         # Set objective for hyperparameter optimization
         if model.hparams.always_log_hpo_objective or retcode >= 0:
