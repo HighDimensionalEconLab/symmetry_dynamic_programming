@@ -43,7 +43,8 @@ run_sweep_and_agent "baseline_identity"
 run_sweep_and_agent "L_2_deep_sets"
 run_sweep_and_agent "L_8_deep_sets"
 run_sweep_and_agent "L_16_deep_sets"
-run_sweep_and_agent "shallow_1_2_deep_sets" # almost not worth trouble.  Likely requires new HPO
+# run_sweep_and_agent "shallow_1_2_deep_sets" # almost not worth trouble.  Likely requires new HPO
+run_sweep_and_agent "deep_2_4_deep_sets"
 run_sweep_and_agent "deep_4_8_deep_sets"
 run_sweep_and_agent "wide_256_deep_sets"
 run_sweep_and_agent "thin_64_deep_sets"

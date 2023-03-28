@@ -186,6 +186,8 @@ class InvestmentEuler(pl.LightningModule):
                                 "u_hat": u_X,
                                 "residual": residuals,
                                 "u_reference": u_linear,
+                                "u_rel_error": u_rel_error,
+                                "u_abs_error": u_abs_error,
                                 "X_min": batch["X_min"],
                                 "X_max": batch["X_max"],
                                 "X_mean": batch["X_mean"],
