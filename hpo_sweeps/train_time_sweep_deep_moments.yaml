@@ -1,5 +1,5 @@
 program: investment_euler.py
-project: symmetry_dp_examples
+name: train_time_sweep_deep_moments
 description: HPO for train_time to early stopping criteria on val_loss of the baseline_deep_moments
 method: bayes
 metric:

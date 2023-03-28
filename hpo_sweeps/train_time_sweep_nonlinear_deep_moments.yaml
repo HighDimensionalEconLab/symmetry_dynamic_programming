@@ -1,5 +1,5 @@
 program: investment_euler.py
-name: baseline_nonlinear_deep_moments
+name: train_time_sweep_nonlinear_deep_moments
 description: HPO for train_time to early stopping criteria on val_loss of the baseline_nonlinear_deep_moments
 method: bayes
 metric:
