@@ -69,14 +69,12 @@ def satisfying_runs(tag):
 #Preparering the results
 
 #1. deepsets
-quantiles= [0.05,0.1,0.5,0.9,0.95]
+quantiles= [0.1,0.25,0.5,0.75,0.9]
 
 df_deep = satisfying_runs("baseline_deep_sets")
-df_deep['test_u_rel_error'] = (df_deep['u_hat']-df_deep['u_reference'])/df_deep['u_reference'] 
-df_deep['abs_test_u_rel_error'] = abs(df_deep['u_hat']-df_deep['u_reference'])/abs(df_deep['u_reference']) 
-df_deep_0 = df_deep[df_deep['retcode']>=0] #Picking those that converged
 
-quant_result_deep = df_deep_0.groupby('t').quantile(quantiles)['abs_test_u_rel_error'].unstack(level=-1)
+df_deep_0 = df_deep[df_deep['retcode']>=0] #Picking those that converged
+quant_result_deep = df_deep_0.groupby('t').quantile(quantiles)['u_rel_error'].unstack(level=-1)
 quant_result_deep.reset_index(inplace=True)
 quant_result_deep.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
@@ -84,51 +82,52 @@ quant_result_deep.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
 #2. mometns
 df_moments = satisfying_runs("baseline_deep_moments")
-df_moments['test_u_rel_error'] = (df_moments['u_hat']-df_moments['u_reference'])/df_moments['u_reference'] 
-df_moments['abs_test_u_rel_error'] = abs(df_moments['u_hat']-df_moments['u_reference'])/abs(df_moments['u_reference']) 
-df_moments_0 = df_moments[df_moments['retcode']>=0] #Picking those that converged
 
-quant_result_moments = df_moments_0.groupby('t').quantile(quantiles)['abs_test_u_rel_error'].unstack(level=-1)
+df_moments_0 = df_moments[df_moments['retcode']>=0] #Picking those that converged
+quant_result_moments = df_moments_0.groupby('t').quantile(quantiles)['u_rel_error'].unstack(level=-1)
 quant_result_moments.reset_index(inplace=True)
 quant_result_moments.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
+
 #3. identity
 df_identity = satisfying_runs("baseline_identity")
-df_identity['test_u_rel_error'] = (df_identity['u_hat']-df_identity['u_reference'])/df_identity['u_reference'] 
-df_identity['abs_test_u_rel_error'] = abs(df_identity['u_hat']-df_identity['u_reference'])/abs(df_identity['u_reference']) 
-df_identity_0 = df_identity[df_identity['retcode']>=0] #Picking those that converged
 
-quant_result_identity = df_identity_0.groupby('t').quantile(quantiles)['abs_test_u_rel_error'].unstack(level=-1)
+df_identity_0 = df_identity[df_identity['retcode']>=0] #Picking those that converged
+quant_result_identity = df_identity_0.groupby('t').quantile(quantiles)['u_rel_error'].unstack(level=-1)
 quant_result_identity.reset_index(inplace=True)
 quant_result_identity.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
 
+
 plt.rcParams.update(params)
 
-
+# plotting
 ax_identity = plt.subplot(131)
-plt.plot(quant_result_identity["t"], quant_result_identity["quantile_0.5"], label= r"Median")
+plt.plot(quant_result_identity["t"], quant_result_identity["quantile_0.5"], color= 'black', label= r"Median")
 ax_identity.set_yscale('log')
-plt.fill_between(quant_result_identity["t"], quant_result_identity["quantile_0.1"], quant_result_identity["quantile_0.9"], alpha=0.2)
-plt.title(r"Absolute relative errors with $\phi($Identity$)$")
+plt.fill_between(quant_result_identity["t"], quant_result_identity["quantile_0.1"], quant_result_identity["quantile_0.9"], color='gray', alpha=0.2, label = r"$10$th and $90$th percentiles")
+plt.fill_between(quant_result_identity["t"], quant_result_identity["quantile_0.25"], quant_result_identity["quantile_0.75"], color='gray', alpha=0.6,  label = r"$25$th and $75$th percentiles")
+plt.title(r"Relative errors with $\phi($Identity$)$")
 plt.xlabel(r"Time($t$)")
-plt.legend(prop={"size": fontsize})
+plt.legend(prop={"size": fontsize}, loc='lower left')
 plt.tight_layout()
 
 ax_moments = plt.subplot(132, sharey=ax_identity)
-plt.plot(quant_result_moments["t"], quant_result_moments["quantile_0.5"], label = r"Median")
-plt.fill_between(quant_result_moments["t"],quant_result_moments["quantile_0.1"], quant_result_moments["quantile_0.9"], alpha=0.2)
-plt.title(r"Absolute relative errors with $\phi($Moments$)$")
+plt.plot(quant_result_moments["t"], quant_result_moments["quantile_0.5"], color= 'black', label = r"Median")
+plt.fill_between(quant_result_moments["t"],quant_result_moments["quantile_0.1"], quant_result_moments["quantile_0.9"], color='gray', alpha=0.2, label= r"$10$th and $90$th percentiles")
+plt.fill_between(quant_result_moments["t"],quant_result_moments["quantile_0.25"], quant_result_moments["quantile_0.75"], color='gray', alpha=0.6, label= r"$25$th and $75$th percentiles")
+plt.title(r"Relative errors with $\phi($Moments$)$")
 plt.xlabel(r"Time($t$)")
-plt.legend(prop={"size": fontsize})
+plt.legend(prop={"size": fontsize}, loc='lower left')
 plt.tight_layout()
 
 ax_deep = plt.subplot(133, sharey=ax_moments)
-plt.plot(quant_result_deep["t"], quant_result_deep["quantile_0.5"], label = r"Median")
-plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.1"], quant_result_deep["quantile_0.9"], alpha=0.2)
-plt.title(r"Absolute relative errors with $\phi($ReLU$)$")
+plt.plot(quant_result_deep["t"], quant_result_deep["quantile_0.5"], color= 'black', label = r"Median")
+plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.1"], quant_result_deep["quantile_0.9"],color='gray', alpha=0.2, label= r"$10$th and $90$th percentiles")
+plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.25"], quant_result_deep["quantile_0.75"],color='gray', alpha=0.6, label= r"$25$th and $75$th percentiles")
+plt.title(r"Relative errors with $\phi($ReLU$)$")
 plt.xlabel(r"Time($t$)")
-plt.legend(prop={"size": fontsize})
+plt.legend(prop={"size": fontsize}, loc='lower left')
 plt.tight_layout()
 
 plt.savefig(output_path)
