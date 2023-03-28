@@ -9,7 +9,7 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
 fontsize = 10
 ticksize = 14
-figsize = (6, 3.5)
+figsize = (8, 3.5)
 params = {
     "text.usetex": True,
     "font.family": "serif",
@@ -24,7 +24,7 @@ params = {
 }
 
 output_dir = "./figures"
-plot_name = "deep-sets-linear-profiling-time-rel-n.pdf"
+plot_name = "deep-sets-linear-profiling-var-n"
 
 output_path = output_dir + "/" + plot_name + ".pdf"
 
@@ -56,9 +56,10 @@ df_deep = satisfying_runs("baseline_deep_sets_N")
 
 df_successes= df_deep.loc[df_deep['retcode']==0]
 
-
 #making the dataframe for training time quartiles 
-quantiles= [0.05,0.1,0.5,0.9,0.95]
+quantiles= [0.1,0.25,0.5,0.75,0.9]
+
+
 
 quant_train_time_deep = df_successes.groupby('N').quantile(quantiles)['train_time'].unstack(level=-1)
 quant_train_time_deep.reset_index(inplace=True)
@@ -71,27 +72,31 @@ quant_test_u_rel_error_deep = df_successes.groupby('N').quantile(quantiles)['tes
 quant_test_u_rel_error_deep.reset_index(inplace=True)
 quant_test_u_rel_error_deep.columns = ['N'] + [f'quantile_{q}' for q in quantiles]
 
-
 plt.rcParams.update(params) 
 
 
 ax_time = plt.subplot(121)
-plt.plot(quant_train_time_deep['N'], quant_train_time_deep['quantile_0.5'])
-plt.fill_between(quant_train_time_deep['N'], quant_train_time_deep["quantile_0.1"],quant_train_time_deep["quantile_0.9"], alpha=0.2)
-ax_time.xaxis.set_ticks([1, 10, 100, 1000, 10000,100000])
+plt.plot(quant_train_time_deep['N'], quant_train_time_deep['quantile_0.5'], color= 'black', label= r"Median")
+plt.fill_between(quant_train_time_deep['N'], quant_train_time_deep["quantile_0.1"],quant_train_time_deep["quantile_0.9"], color ='gray', alpha=0.2, label = r"$10$th and $90$th percentiles")
+plt.fill_between(quant_train_time_deep['N'], quant_train_time_deep["quantile_0.25"],quant_train_time_deep["quantile_0.75"], color ='gray', alpha=0.6, label = r"$25$th and $75$th percentiles")
+#ax_time.xaxis.set_ticks([1, 10, 100, 1000, 10000]) #Add 100000 if N=16834 is added
 ax_time.set_xscale('log')
 plt.title(r"Computation time(seconds)")
 plt.xlabel(r"N")
+plt.legend(prop={"size": fontsize}, loc='upper left')
+plt.tight_layout()
+
+
 
 ax_loss = plt.subplot(122)
-plt.plot(quant_test_u_rel_error_deep['N'], quant_test_u_rel_error_deep['quantile_0.5'])
-plt.fill_between(quant_test_u_rel_error_deep['N'], quant_test_u_rel_error_deep["quantile_0.1"],quant_test_u_rel_error_deep["quantile_0.9"], alpha=0.2)
+plt.plot(quant_test_u_rel_error_deep['N'], quant_test_u_rel_error_deep['quantile_0.5'], color= 'black', label=r"Median")
+plt.fill_between(quant_test_u_rel_error_deep['N'], quant_test_u_rel_error_deep["quantile_0.1"],quant_test_u_rel_error_deep["quantile_0.9"], color ='gray', alpha=0.2, label = r"$10$th and $90$th percentiles")
+plt.fill_between(quant_test_u_rel_error_deep['N'], quant_test_u_rel_error_deep["quantile_0.25"],quant_test_u_rel_error_deep["quantile_0.75"], color ='gray', alpha=0.6, label = r"$25$th and $75$th percentiles")
 ax_loss.set_xscale('log')
-ax_loss.xaxis.set_ticks([1, 10, 100, 1000, 10000, 100000])
-plt.title(r"Relative Test Loss($\varepsilon$)")
+#ax_loss.xaxis.set_ticks([7, 10, 100, 1000, 9000]) #Add 100000 if N=16834 is added
+plt.title(r"Relative errors")
 plt.xlabel(r"N")
-
+plt.legend(prop={"size": fontsize}, loc='lower left')
 plt.tight_layout()
 
 plt.savefig(output_path)
-
