@@ -355,16 +355,6 @@ class InvestmentEuler(pl.LightningModule):
 
 def log_and_save(trainer, model, train_time):
     if type(trainer.logger) is WandbLogger:
-        trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-        # Objective value given in the settings, or empty
-        if model.hparams.hpo_objective_name is not None:
-            hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
-                model.hparams.hpo_objective_name
-            ]
-        else:
-            hpo_objective_value = math.nan
-
         # Valid numeric types
         def not_number_type(value):
             if value is None:
@@ -451,6 +441,7 @@ def log_and_save(trainer, model, train_time):
             convergence_description = " Unknown failure"
 
         # Log all calculated results
+        trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
         trainer.logger.experiment.log({"train_time": train_time})
         trainer.logger.experiment.log({"early_stopping_monitor": early_stopping_monitor})
         trainer.logger.experiment.log({"early_stopping_threshold": early_stopping_threshold})
@@ -463,6 +454,14 @@ def log_and_save(trainer, model, train_time):
         trainer.logger.experiment.log({"X_T_mean": X_T_mean})        
 
         # Set objective for hyperparameter optimization
+        # Objective value given in the settings, or empty
+        if model.hparams.hpo_objective_name is not None:
+            hpo_objective_value = dict(cli.trainer.logger.experiment.summary)[
+                model.hparams.hpo_objective_name
+            ]
+        else:
+            hpo_objective_value = math.nan
+                    
         if model.hparams.always_log_hpo_objective or retcode >= 0:
             trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
         else:

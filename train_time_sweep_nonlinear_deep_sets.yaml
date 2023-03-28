@@ -1,0 +1,49 @@
+program: investment_euler.py
+name: Sweep for nonlinear model with deep sets
+description: HPO for train_time to early stopping criteria on val_loss of the baseline_nonlinear_deep_sets
+method: bayes
+metric:
+  # See the investment_euler.py log_and_save
+  name: hpo_objective 
+  goal: minimize
+  # early_terminate:  not necessary here given the trainer.max_time
+parameters:
+  # Fix parameters here:
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:03:00  # these tests shouldn't take more than 2-3 minutes
+  model.hpo_objective_name:
+    value: train_time
+   # Stopping criteria
+  trainer.callbacks.monitor:
+    value: val_loss
+  trainer.callbacks.stopping_threshold:
+    value: 1.0e-6
+
+  # Provide distributions and variations for optimizer
+  model.N:
+    value: 128
+  optimizer.lr:
+    min: 5.0e-5
+    max: 2.0e-3
+  lr_scheduler.step_size:
+    values: [10, 20, 50]
+  lr_scheduler.gamma:
+    values: [0.9, 0.8, 0.5]
+  model.reset_trajectories_frequency:
+    values: [0, 2, 5, 10, 20]
+  model.ml_model.init_args.L:
+    values: [1,2,3,4]        
+  model.ml_model.init_args.rho_layers:
+    values: [3,4]
+  model.ml_model.init_args.rho_hidden_dim:
+    values: [128, 256]
+  model.ml_model.init_args.phi_layers:
+    values: [1,2,3]
+  model.ml_model.init_args.phi_hidden_dim:
+    values: [128, 256]
+  model.train_trajectories:
+    values: [16, 32]
+  model.val_trajectories:
+    values: [8, 16]    
