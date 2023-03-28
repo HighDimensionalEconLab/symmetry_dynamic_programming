@@ -93,7 +93,8 @@ plt.plot(quant_test_u_rel_error_deep['N'], quant_test_u_rel_error_deep['quantile
 plt.fill_between(quant_test_u_rel_error_deep['N'], quant_test_u_rel_error_deep["quantile_0.1"],quant_test_u_rel_error_deep["quantile_0.9"], color ='gray', alpha=0.2, label = r"$10$th and $90$th percentiles")
 plt.fill_between(quant_test_u_rel_error_deep['N'], quant_test_u_rel_error_deep["quantile_0.25"],quant_test_u_rel_error_deep["quantile_0.75"], color ='gray', alpha=0.6, label = r"$25$th and $75$th percentiles")
 ax_loss.set_xscale('log')
-#ax_loss.xaxis.set_ticks([7, 10, 100, 1000, 9000]) #Add 100000 if N=16834 is added
+ax_loss.set_yscale('log')
+ax_loss.yaxis.set_ticks([0.0001, 0.001]) 
 plt.title(r"Relative errors")
 plt.xlabel(r"N")
 plt.legend(prop={"size": fontsize}, loc='lower left')
