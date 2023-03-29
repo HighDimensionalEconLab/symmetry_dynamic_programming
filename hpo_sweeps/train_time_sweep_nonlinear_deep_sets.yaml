@@ -24,6 +24,8 @@ parameters:
   # Provide distributions and variations for optimizer
   model.N:
     value: 128
+  model.nu:
+    value: 1.5    
   optimizer.lr:
     min: 5.0e-5
     max: 2.0e-3
@@ -32,7 +34,7 @@ parameters:
   lr_scheduler.gamma:
     values: [0.9, 0.8, 0.5]
   model.reset_trajectories_frequency:
-    values: [0, 2, 5, 10, 20]
+    values: [0, 1, 2, 5, 10, 20]
   model.ml_model.init_args.L:
     values: [1,2,3,4]        
   model.ml_model.init_args.rho_layers:
