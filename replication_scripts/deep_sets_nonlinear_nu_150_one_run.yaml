@@ -1,5 +1,5 @@
 program: investment_euler.py
-name: deep_sets_nonlinear_nu_130_one_run
+name: deep_sets_nonlinear_nu_150_one_run
 description: Multiple seeds given baseline deep sets parameterization
 method: grid
 parameters:
