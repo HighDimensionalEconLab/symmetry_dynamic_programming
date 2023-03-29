@@ -6,7 +6,7 @@ parameters:
   trainer.logger.tags:
     value: [deep_sets_nonlinear_nu_150_one_run]
   seed:
-    value: 123 # number of ensembles to solve
+    value: 123 
     
   trainer.logger.offline:
     value: false # log online for W&B optimization
