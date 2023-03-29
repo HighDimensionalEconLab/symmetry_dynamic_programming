@@ -33,7 +33,7 @@ parameters:
   model.N:
     value: 128
   model.nu:
-    value: 1.3
+    value: 1.5
 
   model.ml_model.class_path:
     value: econ_layers.layers.DeepSetMoments
