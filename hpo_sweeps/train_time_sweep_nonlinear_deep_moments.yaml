@@ -24,6 +24,8 @@ parameters:
   # Provide distributions and variations for optimizer
   model.N:
     value: 128
+  model.nu:
+    value: 1.5
   optimizer.lr:
     min: 5.0e-5
     max: 2.0e-3
@@ -46,13 +48,13 @@ parameters:
   model.ml_model.init_args.rho_last_bias:
     value: true
   model.ml_model.init_args.rho_activator.class_path:
-    value: torch.nn.ReLU  
+    value: torch.nn.ReLU
   model.ml_model.init_args.L:
     values: [2,3,4]
   model.ml_model.init_args.rho_layers:
     values: [3,4]
   model.ml_model.init_args.rho_hidden_dim:
-    values: [128, 256]
+    values: [64,128]
   model.train_trajectories:
     values: [16, 32]
   model.val_trajectories:
