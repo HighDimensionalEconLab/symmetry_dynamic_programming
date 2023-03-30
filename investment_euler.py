@@ -48,6 +48,7 @@ class InvestmentEuler(pl.LightningModule):
         train_trajectories: int,
         val_trajectories: int,
         test_trajectories: int,
+        train_subsample_trajectories: int,
         reset_trajectories_frequency: int,
         batch_size: int,
         shuffle_training: bool,
@@ -288,6 +289,9 @@ class InvestmentEuler(pl.LightningModule):
             self.train_data = self.simulate(
                 self.hparams.train_trajectories, initial_trajectory_policy
             )
+            if self.hparams.train_subsample_trajectories > 0:
+                sample_idx = np.random.randint(len(self.train_data), size=self.hparams.train_subsample_trajectories)
+                self.train_data = self.train_data[sample_idx]
             self.val_data = self.simulate(self.hparams.val_trajectories, initial_trajectory_policy)
 
         if stage == "test" or stage is None:

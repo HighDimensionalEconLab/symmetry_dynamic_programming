@@ -88,6 +88,7 @@ model:
   normalize_shock_vector: true
   reset_trajectories_frequency: 0 # in epochs, 0 to never reset
   train_trajectories: 16
+  train_subsample_trajectories: 0 # if > 0 will randomly sample from the train trajectories datapoints, otherwise uses all
   val_trajectories: 8
   test_trajectories: 32
   batch_size: 16 # set to 0 for full dataset
