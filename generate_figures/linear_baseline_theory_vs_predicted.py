@@ -48,11 +48,11 @@ def first_satisfying_run(summary_value, threshold, tag):
                 data = pd.DataFrame(data = get.data, columns = get.columns)
                 return(data)
 
-df_deep = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_sets_I_run")
+df_deep = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_sets_one_run")
 df_deep = df_deep[df_deep["ensemble"] == 0]
-df_moments = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_moments_I_run")
+df_moments = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_moments_one_run")
 df_moments = df_moments[df_moments["ensemble"] == 0]
-df_identity = first_satisfying_run("test_u_rel_error", 0.005, "baseline_identity_I_run")
+df_identity = first_satisfying_run("test_u_rel_error", 0.005, "baseline_identity_one_run")
 df_identity = df_identity[df_identity["ensemble"] == 0]
 
 
