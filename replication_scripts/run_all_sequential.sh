@@ -49,6 +49,7 @@ run_sweep_and_agent () {
 # run_sweep_and_agent "wide_256_deep_sets"
 # run_sweep_and_agent "thin_64_deep_sets"
 # run_sweep_and_agent "thin_64_identity"
+# run_sweep_and_agent "L_2_deep_moments"
 
 # # This can take a day given the massive number of variations tested
 # run_sweep_and_agent "baseline_deep_sets_N"
