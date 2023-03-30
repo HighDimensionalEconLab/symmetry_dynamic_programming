@@ -17,15 +17,15 @@ parameters:
   trainer.callbacks.monitor:
     value: val_loss
   trainer.callbacks.stopping_threshold:
-    value: 1.0e-6
-  #Learning rate
-
+    value: 1.0e-6  #Learning rate
+  model.reset_trajectories_frequency:
+    value: 10
   model.reset_trajectories_frequency:
     value: 5 # otherwise sticks with linear until the test set
   optimizer.lr:
-    value: 1.0e-4
+    value: 5.0e-4
   lr_scheduler.step_size:
-    value: 10
+    value: 20
   lr_scheduler.gamma:
     value: 0.8
 
@@ -53,3 +53,7 @@ parameters:
     value: true
   model.ml_model.init_args.rho_activator.class_path:
     value: torch.nn.ReLU
+  model.train_trajectories:
+    value: 32
+  model.val_trajectories:
+    value: 16    
