@@ -1,10 +1,10 @@
 program: investment_euler.py
-name: baseline_deep_moments_I_run
+name: baseline_deep_moments_one_run
 description: Single run with deep moments with comparable aggregate and idiosyncratic shocks
 method: grid
 parameters:
   trainer.logger.tags:
-    value: [baseline_deep_moments_I_run]
+    value: [baseline_deep_moments_one_run]
   seed:
     value: 123
   trainer.logger.offline:
