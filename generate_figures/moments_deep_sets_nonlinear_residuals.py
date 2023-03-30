@@ -95,7 +95,7 @@ plt.fill_between(quant_result_moments["t"],quant_result_moments["quantile_0.25"]
 plt.title(r"Euler residuals ($\varepsilon$) with $\phi($Moments$)$")
 plt.xlabel(r"Time($t$)")
 plt.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useOffset= True)
-plt.legend(prop={"size": fontsize}, loc='upper right')
+plt.legend(prop={"size": fontsize}, loc='lower right')
 plt.tight_layout()
 
 ax_deep = plt.subplot(122, sharey=ax_moments)
