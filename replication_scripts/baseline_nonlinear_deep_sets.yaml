@@ -37,9 +37,5 @@ parameters:
 
   model.ml_model.phi_layers:
       value: 1
-  #model.train_trajectories:
-    #value: 32
-  #model.val_trajectories:
-    #value: 16    
   
 
