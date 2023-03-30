@@ -38,9 +38,9 @@ parameters:
   model.ml_model.phi_layers:
       value: 1
   model.train_trajectories:
-    values: 32
+    value: 32
   model.val_trajectories:
-    values: 16    
+    value: 16    
   model.test_seed:
     value: 10
 

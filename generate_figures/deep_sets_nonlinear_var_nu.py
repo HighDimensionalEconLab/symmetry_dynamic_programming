@@ -48,13 +48,13 @@ def first_satisfying_run(summary_value, threshold, tag):
                 data = pd.DataFrame(data = get.data, columns = get.columns)
                 return(data)
             
-df_nu_150 = first_satisfying_run("test_loss", 1e-5, "deep_sets_nonlinear_nu_150_I_run")
+df_nu_150 = first_satisfying_run("test_loss", 1e-5, "deep_sets_nonlinear_nu_150_one_run")
 df_nu_150 = df_nu_150[df_nu_150["ensemble"] == 0]
 
-df_nu_130 = first_satisfying_run("test_loss", 1e-5, "deep_sets_nonlinear_nu_130_I_run")
+df_nu_130 = first_satisfying_run("test_loss", 1e-5, "deep_sets_nonlinear_nu_130_one_run")
 df_nu_130 = df_nu_130[df_nu_130["ensemble"] == 0]
 
-df_nu_100 = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_sets_I_run")
+df_nu_100 = first_satisfying_run("test_u_rel_error", 0.005, "baseline_deep_sets_one_run")
 df_nu_100 = df_nu_100[df_nu_100["ensemble"] == 0]
 
 plt.rcParams.update(params)
