@@ -1,6 +1,6 @@
 program: investment_euler.py
 name: baseline_nonlinear_deep_moments
-description: Multiple seeds given baseline deep moments parameterization
+description: Multiple seeds given baseline deep moments parameterization for the nonlinear case
 method: grid
 parameters:
   trainer.logger.tags:

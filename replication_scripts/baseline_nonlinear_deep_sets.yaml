@@ -1,6 +1,6 @@
 program: investment_euler.py
 name: baseline_nonlinear_deep_sets
-description: Multiple seeds given baseline deep sets parameterization
+description: Multiple seeds given baseline deep sets parameterization for the nonlinear case
 method: grid
 parameters:
   trainer.logger.tags:
