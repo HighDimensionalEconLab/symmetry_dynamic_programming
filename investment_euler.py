@@ -264,24 +264,24 @@ class InvestmentEuler(pl.LightningModule):
 
     # At this point, the code is running local to the GPU/etc. if used
     def setup(self, stage):
-        # quadrature for use within the expectation calculations
-        nodes, weights = quantecon.quad.qnwnorm(self.hparams.omega_quadrature_nodes)
-        self.quadrature_nodes = torch.tensor(nodes, dtype=self.dtype, device=self.device)
-        self.quadrature_weights = torch.tensor(weights, dtype=self.dtype, device=self.device)
-
-        # Monte Carlo draw for the expectations, possibly normalizing it
-        vec = torch.randn(1, self.hparams.N, device=self.device, dtype=self.dtype)
-        self.expectation_shock_vector = (
-            (vec - vec.mean()) / vec.std() if self.hparams.normalize_shock_vector else vec
-        )
-
-        # Draw initial condition for the X_0 to simulate
-        self.X_0_dist = torch.distributions.normal.Normal(  # not a tensor
-            self.hparams.X_0_loc, self.hparams.X_0_scale
-        )
-        self.X_0 = torch.abs(self.X_0_dist.sample((self.hparams.N,)))
-
         if stage == "fit" or stage is None:
+            # quadrature for use within the expectation calculations
+            nodes, weights = quantecon.quad.qnwnorm(self.hparams.omega_quadrature_nodes)
+            self.quadrature_nodes = torch.tensor(nodes, dtype=self.dtype, device=self.device)
+            self.quadrature_weights = torch.tensor(weights, dtype=self.dtype, device=self.device)
+
+            # Monte Carlo draw for the expectations, possibly normalizing it
+            vec = torch.randn(1, self.hparams.N, device=self.device, dtype=self.dtype)
+            self.expectation_shock_vector = (
+                (vec - vec.mean()) / vec.std() if self.hparams.normalize_shock_vector else vec
+            )
+
+            # Draw initial condition for the X_0 to simulate
+            self.X_0_dist = torch.distributions.normal.Normal(  # not a tensor
+                self.hparams.X_0_loc, self.hparams.X_0_scale
+            )
+            self.X_0 = torch.abs(self.X_0_dist.sample((self.hparams.N,)))
+
             # Use a linear policy for initial simulation: h_0 + h_1 mean(X). h_0>0, h_1<0 guarantees stationarity and positivity. |h_0/h_1|<1 guarantees prices p(X)>0 in the sample
             def initial_trajectory_policy(X):
                 return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
@@ -294,7 +294,10 @@ class InvestmentEuler(pl.LightningModule):
                 self.train_data = self.train_data[sample_idx]
             self.val_data = self.simulate(self.hparams.val_trajectories, initial_trajectory_policy)
 
-        if stage == "test" or stage is None:
+        if stage == "test":
+
+            # Initial conditions and vectors for shocks are identical to those in the first stages
+            
             if self.hparams.test_seed > 0:
                 pl.seed_everything(
                     self.hparams.test_seed
