@@ -72,7 +72,7 @@ def summary_run(group, description, tag):
 
     ##getting the median of the dataframe and creating a new dataframe with it to return median
     new_df = pd.DataFrame(df.quantile(0.5).to_dict(), index = [group])
-    new_df['description'] = description
+    new_df['Description'] = description
     return(new_df)
 
 ##making the latex table
@@ -80,8 +80,8 @@ def summary_run(group, description, tag):
 def linear_performance_table(df):
     df = df.rename(
             columns={
-                "retcode":r"\shortstack{Success Rate}",
-                "elapsed_time": r"\shortstack{Time \\ (s)}",
+                "retcode":r"\shortstack{Success \\(\%)}",
+                "train_time": r"\shortstack{Time \\ (s)}",
                 "trainable_parameters": r"\shortstack{Params\\ (K)}",
                 "train_loss": r"\shortstack{Train MSE \\ ($\varepsilon$)}",
                 "test_loss": r"\shortstack{Test MSE \\ ($\varepsilon$)}",
@@ -121,13 +121,14 @@ for group in networks.keys():
             print("no run yet")
         else: 
             if first == 1:
+                first+=1
                 summary_run_total = summary_run_one
             else:
                 summary_run_total = pd.concat([summary_run_one,summary_run_total])
 
 summary_run_total = summary_run_total.reset_index()
-summary_run_total.rename(columns={'index': 'group'}, inplace = True)
-summary_run_total= summary_run_total.set_index(['group', 'description'])
+summary_run_total.rename(columns={'index': 'Group'}, inplace = True)
+summary_run_total= summary_run_total.set_index(['Group', 'Description'])
 summary_run_total
 
 with open(output_dir + "/linear_performance_table.tex", "w") as file:
