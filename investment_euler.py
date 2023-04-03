@@ -349,7 +349,7 @@ class InvestmentEuler(pl.LightningModule):
         )
 
     # Reset simulation of training and validation data
-    def training_epoch_end(self, outputs):
+    def on_train_epoch_end(self):
         # generates trajectories with current policy, regardless of nu
         if (
             self.hparams.reset_trajectories_frequency > 0

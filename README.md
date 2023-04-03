@@ -100,11 +100,22 @@ For users with less experience using python, conda, and VS Code, the following p
     conda create -n symmetry_dp python=3.9
     conda activate symmetry_dp
     ```
-    - In VS Code, you can then do `<Shift-Control-P>` to open up the commandbar, then choose `> Python: Select Interpreter`, and choose the one in the `symmetry_dp` environment.  Future `> Python: Terminal` commands then automatically activate it.
-5. Install dependencies.  With a terminal in that cloned folder (after, optionally, activating an environment as discussed above).
+    - Python 3.10 is also broadly supported, but PyTorch doesn't fully support Python 3.11 yet
+
+5. (Optional) In VS Code, you can then do `<Shift-Control-P>` to open up the commandbar, then choose `> Python: Select Interpreter`, and choose the one in the `symmetry_dp` environment.  Future `> Python: Terminal` commands then automatically activate it.
+    - If you are in VS Code, opening a python terminal with  `<Shift-Control-P>` then  `> Python: Terminal` and other terminals should automatically activate the environment and start in the correct location.
+
+6. Install dependencies.  With a terminal in that cloned folder (after, optionally, activating an environment as discussed above).
     ```bash
     pip install -r requirements.txt
     ```
-    - If you are in VS Code, opening a python terminal with  `<Shift-Control-P>` then  `> Python: Terminal` will automatically activate the environment and start in the correct location.
+7. (Optional) installation of PyTorch with GPU support.
+    - If the above process only installs the CPU version and you have a GPU available, follow for more details https://pytorch.org/get-started/locally/ with the activated environment.
+    - For example `conda install pytorch pytorch-cuda=11.8 -c pytorch -c nvidia`.
+    - Then, if you pass the `python investment_euler.py --trainer.accelerator=gpu` etc it will use available hardware
+    - Note that GPUs are not required for these experiments, and are often slower.
 
-**Troubleshooting:** If pytorch is not working, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cpuonly -c pytorch ` or something similar, and then retrying the dependencies installation.  GPUs are not required for these experiments.   If you get compatibility clashes between packages with the `pip install -r requirements.txt` then we recommend using a virtual environment with conda, as described above.
+**Troubleshooting:**
+
+   - If you are having trouble installing packages on Windows with Python 3.10, then downgrade to 3.9 (i.e. create the environment with `conda create -n symmetry_dp python=3.10`) or possibly see [here](https://stackoverflow.com/questions/64261546/how-to-solve-error-microsoft-visual-c-14-0-or-greater-is-required-when-inst)
+   - If PyTorch is not working after the initial instlalation, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cpuonly -c pytorch ` or something similar, and then retrying the dependencies installation.  GPUs are not required for these experiments.   If you get compatibility clashes between packages with the `pip install -r requirements.txt` then we recommend using a virtual environment with conda, as described above.
