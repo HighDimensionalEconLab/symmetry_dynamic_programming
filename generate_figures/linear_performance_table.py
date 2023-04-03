@@ -69,10 +69,10 @@ def summary_run(group, description, tag):
     df["trainable_parameters"] = df["trainable_parameters"] / 1000
     df["test_u_rel_error"] = df["test_u_rel_error"] * 100
     df["retcode"] = df[df['retcode']>=0].count()['retcode']/100
-    
+    df_retcode_0 = df[df["retcode"] >= 0]
 
     ##getting the median of the dataframe and creating a new dataframe with it to return median
-    new_df = pd.DataFrame(df.quantile(0.5).to_dict(), index = [group])
+    new_df = pd.DataFrame(df_retcode_0.quantile(0.5).to_dict(), index = [group])
     new_df['Description'] = description
     return(new_df)
 
@@ -124,12 +124,12 @@ for group in networks.keys():
                 first+=1
                 summary_run_total = summary_run_one
             else:
-                summary_run_total = pd.concat([summary_run_one,summary_run_total])
+                summary_run_total = pd.concat([summary_run_total,summary_run_one])
 
 summary_run_total = summary_run_total.reset_index()
 summary_run_total.rename(columns={'index': 'Group'}, inplace = True)
 summary_run_total= summary_run_total.set_index(['Group', 'Description'])
 summary_run_total
 
-with open(output_dir + "/linear_performance_table.tex", "w") as file:
-    file.write(linear_performance_table(summary_run_total))
+#with open(output_dir + "/linear_performance_table.tex", "w") as file:
+    #file.write(linear_performance_table(summary_run_total))
