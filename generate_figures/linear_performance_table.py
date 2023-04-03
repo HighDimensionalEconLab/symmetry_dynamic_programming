@@ -11,7 +11,6 @@ import wandb
 
 output_dir = "./figures"
 plot_name = "linear_performance_table"
-output_path = output_dir + "/" + plot_name + ".pdf"
 
 api = wandb.Api()
 sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
@@ -22,19 +21,21 @@ sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 networks = {
 
-'Identity': [["Baseline", "baseline_identity"], ["Thin (64 nodes)"]],
+'Identity': [["Baseline", "baseline_identity"], ["Thin (64 nodes)", "thin_64_identity"]],
 'Moments': [["Baseline", "baseline_deep_moments"],
-               ["Moments (1,2)"],
-                ["Very Shallow (1 layer)"], 
-                ["Thin (64 nodes)"]], 
+               ["Moments (1,2)","L_2_deep_moments"],
+                ["Very Shallow (1 layer)", "very_shallow_1_layer_deep_moments"], 
+                ["Thin (64 nodes)", "thin_64_deep_moments"]], 
 'Deep Sets': [["Baseline", "baseline_deep_sets"],
             ["L = 2", "L_8_deep_sets"],
             ["L = 16", "L_16_deep_sets"], 
             ["Shallow", "shallow_1_2_deep_sets"],
             ["Deep 4/8", "deep_4_8_deep_sets"], 
             ["Deep 2/4",  "deep_2_4_deep_sets"],
-            ["Thin (64 nodes)"]]
+            ["Thin (64 nodes)", "thin_64_deep_sets"]]
 }
+
+
 
 def summary_run(group, description, tag):
     run_num=0 
@@ -76,7 +77,6 @@ def summary_run(group, description, tag):
     return(new_df)
 
 ##making the latex table
-
 def linear_performance_table(df):
     df = df.rename(
             columns={
