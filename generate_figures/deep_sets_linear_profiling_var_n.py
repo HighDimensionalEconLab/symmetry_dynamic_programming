@@ -81,6 +81,7 @@ plt.fill_between(quant_train_time_deep['N'], quant_train_time_deep["quantile_0.1
 plt.fill_between(quant_train_time_deep['N'], quant_train_time_deep["quantile_0.25"],quant_train_time_deep["quantile_0.75"], color ='gray', alpha=0.6, label = r"$25$th and $75$th percentiles")
 #ax_time.xaxis.set_ticks([1, 10, 100, 1000, 10000]) #Add 100000 if N=16834 is added
 ax_time.set_xscale('log')
+ax_time.set_yscale('log')
 plt.title(r"Computation time(seconds)")
 plt.xlabel(r"N")
 plt.legend(prop={"size": fontsize}, loc='upper left')
