@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99d
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: SymmetryDynamicProgramming.aux
+Reallocating 'name_of_file' (item size: 1) to 5 items.
+The style file: ecta.bst
+Reallocating 'name_of_file' (item size: 1) to 27 items.
+Database file #1: SymmetryDynamicProgramming.bib
+You've used 53 entries,
+            2849 wiz_defined-function locations,
+            916 strings with 13202 characters,
+and the built_in function-call counts, 32175 in all, are:
+= -- 2644
+> -- 1362
+< -- 75
++ -- 439
+- -- 376
+* -- 2704
+:= -- 4905
+add.period$ -- 98
+call.type$ -- 53
+change.case$ -- 338
+chr.to.int$ -- 53
+cite$ -- 53
+duplicate$ -- 2402
+empty$ -- 2411
+format.name$ -- 625
+if$ -- 6477
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 445
+newline$ -- 164
+num.names$ -- 268
+pop$ -- 866
+preamble$ -- 1
+purify$ -- 335
+quote$ -- 0
+skip$ -- 944
+stack$ -- 0
+substring$ -- 1460
+swap$ -- 1213
+text.length$ -- 7
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 604
+warning$ -- 0
+while$ -- 218
+width$ -- 0
+write$ -- 633
