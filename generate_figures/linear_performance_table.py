@@ -56,7 +56,7 @@ def summary_run(group, description, tag):
         x=[]
         try: 
             for col in cols:
-                x.append(overall_tag[i].summary.get(col))     
+                x.append(float(overall_tag[i].summary.get(col)))     
 
         except:
             print("THERE IS NO RUN DATA ASSOCIATED")
@@ -68,8 +68,11 @@ def summary_run(group, description, tag):
     df = df.T.reset_index(drop=True)
     df["trainable_parameters"] = df["trainable_parameters"] / 1000
     df["test_u_rel_error"] = df["test_u_rel_error"] * 100
-    df["retcode"] = df[df['retcode']>=0].count()['retcode']/100
+    df.insert(0, "success", df[df['retcode']>=0].count()['retcode']/100 )
     df_retcode_0 = df[df["retcode"] >= 0]
+    df_retcode_0 = df_retcode_0.drop("retcode", axis =1)
+
+    
 
     ##getting the median of the dataframe and creating a new dataframe with it to return median
     new_df = pd.DataFrame(df_retcode_0.quantile(0.5).to_dict(), index = [group])
@@ -80,7 +83,7 @@ def summary_run(group, description, tag):
 def linear_performance_table(df):
     df = df.rename(
             columns={
-                "retcode":r"\shortstack{Success \\(\%)}",
+                "success":r"\shortstack{Success \\(\%)}",
                 "train_time": r"\shortstack{Time \\ (s)}",
                 "trainable_parameters": r"\shortstack{Params\\ (K)}",
                 "train_loss": r"\shortstack{Train MSE \\ ($\varepsilon$)}",
@@ -131,5 +134,5 @@ summary_run_total.rename(columns={'index': 'Group'}, inplace = True)
 summary_run_total= summary_run_total.set_index(['Group', 'Description'])
 summary_run_total
 
-#with open(output_dir + "/linear_performance_table.tex", "w") as file:
-    #file.write(linear_performance_table(summary_run_total))
+with open(output_dir + "/linear_performance_table.tex", "w") as file:
+    file.write(linear_performance_table(summary_run_total))
