@@ -70,17 +70,18 @@ quantiles= [0.1,0.25,0.5,0.75,0.9]
 #1. deepsets
 
 df_deep = satisfying_runs("baseline_nonlinear_deep_sets") 
+df_deep['residual_squared'] = df_deep['residual']**2
 df_deep_0 = df_deep[df_deep['retcode']>=0]
-quant_result_deep = df_deep_0.groupby('t').quantile(quantiles)['residual'].unstack(level=-1)
+quant_result_deep = df_deep_0.groupby('t').quantile(quantiles)['residual_squared'].unstack(level=-1)
 quant_result_deep.reset_index(inplace=True)
 quant_result_deep.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
 #2. moments
 
 df_moments = satisfying_runs("baseline_nonlinear_deep_moments") 
-
+df_moments['residual_squared'] = df_moments['residual']**2
 df_moments_0 = df_moments[df_moments['retcode']>=0] #Picking those that converged
-quant_result_moments = df_moments_0.groupby('t').quantile(quantiles)['residual'].unstack(level=-1)
+quant_result_moments = df_moments_0.groupby('t').quantile(quantiles)['residual_squared'].unstack(level=-1)
 quant_result_moments.reset_index(inplace=True)
 quant_result_moments.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
@@ -92,9 +93,9 @@ ax_moments = plt.subplot(121)
 plt.plot(quant_result_moments["t"], quant_result_moments["quantile_0.5"], color= 'black', label = r"Median")
 plt.fill_between(quant_result_moments["t"],quant_result_moments["quantile_0.1"], quant_result_moments["quantile_0.9"], color='gray', alpha=0.2, label= r"$10$th and $90$th percentiles")
 plt.fill_between(quant_result_moments["t"],quant_result_moments["quantile_0.25"], quant_result_moments["quantile_0.75"], color='gray', alpha=0.6, label= r"$25$th and $75$th percentiles")
-plt.title(r"Euler residuals ($\varepsilon$) with $\phi($Moments$)$")
+plt.title(r"Euler residuals squared ($\varepsilon^2$) with $\phi($Moments$)$")
 plt.xlabel(r"Time($t$)")
-plt.ticklabel_format(axis='y', style='sci', scilimits=(0,0), useOffset= True)
+ax_moments.set_yscale('log')
 plt.legend(prop={"size": fontsize}, loc='lower right')
 plt.tight_layout()
 
@@ -102,7 +103,7 @@ ax_deep = plt.subplot(122, sharey=ax_moments)
 plt.plot(quant_result_deep["t"], quant_result_deep["quantile_0.5"], color= 'black', label = r"Median")
 plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.1"], quant_result_deep["quantile_0.9"],color='gray', alpha=0.2, label= r"$10$th and $90$th percentiles")
 plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.25"], quant_result_deep["quantile_0.75"],color='gray', alpha=0.6, label= r"$25$th and $75$th percentiles")
-plt.title(r"Euler residuals ($\varepsilon$) with $\phi($ReLU$)$")
+plt.title(r"Euler residuals squared ($\varepsilon^2$) with $\phi($ReLU$)$")
 plt.xlabel(r"Time($t$)")
 plt.legend(prop={"size": fontsize}, loc='upper right')
 plt.tight_layout()
