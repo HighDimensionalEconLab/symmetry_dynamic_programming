@@ -1,0 +1,1207 @@
+% !TEX program = pdflatex
+% !TEX enableSynctex = true
+% !BIB program = bibtex
+
+\documentclass[12pt]{article}
+
+\usepackage{amsmath,amssymb,amsfonts,amsthm,amsopn,amstext,thmtools,setspace,url,graphicx,underlin,arydshln}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{graphics}
+\usepackage{indentfirst}
+\usepackage{adjustbox}
+\usepackage{datatool}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{algorithm} 
+\usepackage{algpseudocode} 
+
+\hypersetup{
+    colorlinks = true,
+    linkcolor=blue,
+    citecolor=red,
+    urlcolor=cyan
+    }
+    
+\usepackage[capitalise,noabbrev]{cleveref} %
+
+\crefname{equation}{}{} %
+%\usepackage{minted} 
+\usepackage[nohead]{geometry}
+\declaretheorem[numbered=yes]{definition}
+\newtheorem{proposition}{Proposition}
+\newcommand\bigzero{\makebox(0,0){\text{\huge0}}}
+\newcommand{\D}[1][]{\ensuremath{\boldsymbol{\partial}_{#1}}}
+\newcommand{\R}{\ensuremath{\mathbb{R}}}
+\newcommand{\diff}{\ensuremath{\mathrm{d}}}
+\newcommand{\ex}{\ensuremath{\mathrm{ex}}}
+\newcommand{\set}[1]{\ensuremath{\left\{{#1}\right\}}}
+\newcommand{\indicator}[1]{\ensuremath{\mathds{1}\left\{{#1}\right\}}}
+\newcommand{\condexpec}[3][]{\ensuremath{\mathbb{E}_{#1}\left[{#2} \; \middle| \; {#3} \right]}}
+\newcommand{\prob}[2][]{\ensuremath{\mathbb{P}_{#1}\left( {#2} \right)}}
+\newcommand{\cprob}[2]{\ensuremath{\mathbb{P}\left( {#1}\left| {#2} \right. \right)}}
+\newcommand{\condcov}[2]{\ensuremath{\mathrm{cov}\left({#1} \; \middle| \; {#2} \right)}}
+\newcommand{\expec}[2][]{\ensuremath{\mathbb{E}_{{#1}}\left[ {#2} \right]}}
+\newcommand{\bigO}[1]{\ensuremath{\mathcal{O}(#1)}}
+\newcommand\blfootnote[1]{%
+	\begingroup
+	\renewcommand\thefootnote{}\footnote{#1}%
+	\addtocounter{footnote}{-1}%
+	\endgroup
+}
+\newcommand{\loadmap}[2][map]{%
+	\DTLloaddb{#1}{#2}%
+	\DTLforeach{#1}{\Key=Key,\Value=Value}{%
+		\expandafter\def\csname#1\Key\expandafter\endcsname\expandafter{\Value}%
+	}%
+}
+\newcommand{\mapvar}[2][map]{\csname #1#2\endcsname}
+
+\loadmap{../figures/tex_parameter_map.csv} %loads map of parameters for direct insertion into the document.
+
+\bibliographystyle{ecta}
+
+\onehalfspacing
+\geometry{left=5.15em, right=5.15em, top=5.15em, bottom=5.15em}
+\pagenumbering{arabic}
+
+\begin{document}
+
+\title{Exploiting Symmetry \\ \vspace{0.1in}
+in High-Dimensional Dynamic Programming}	
+\author{\small Mahdi Ebrahimi Kahou$^{*}$\and \small Jes\'{u}s Fern\'{a}ndez-Villaverde$^{\dagger}$\and \small Jesse Perla$^{*}$ \and\small  Arnav Sood$^{\mathsection}$}
+\date{\today}
+\maketitle\blfootnote{$^{*}$University of British Columbia, Vancouver School of Economics; ${}^{\dagger}$University of Pennsylvania; and ${}^{\mathsection}$Carnegie Mellon University.}\blfootnote{$^{\ddagger}$ We would like to thank Fernando \'Alvarez, Benjamin Bloem-Reddy, Samira Ebrahimi Kahou, Kevin Leyton-Brown, Vincent Michalski,  Aviv Nevo, Yaniv Plan, John Rust, Kevin Song, and participants at many seminars for useful comments. Excellent research assistance was provided by Amedeus Dsouza, Alim Faraji, and Wenxin Ma. A \texttt{Github} repo with code for this paper is at \url{https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming}.}
+
+\begin{abstract}
+\noindent
+We propose a new method for solving high-dimensional dynamic programming problems and recursive competitive equilibria with a large (but finite) number of heterogeneous agents using deep learning. We avoid the curse of dimensionality thanks to three complementary techniques: (1) exploiting symmetry in the approximate law of motion and the value function; (2) constructing a concentration of measure to calculate high-dimensional expectations using a single Monte Carlo draw from the distribution of idiosyncratic shocks; and (3) designing and training deep learning architectures that exploit symmetry and concentration of measure. As an application, we find a global solution of a multi-firm version of the classic \citet{LucasPrescott1971} model of investment under uncertainty. First, we compare the solution against a linear-quadratic Gaussian version for validation and benchmarking. Next, we solve the nonlinear version where no accurate or closed-form solution exists. Finally, we describe how our approach applies to a large class of models in economics.
+
+\textit{Keywords}{\small: Dynamic programming; deep learning; breaking the curse of dimensionality.}
+
+\textit{JEL codes}{\small: C45, C60, C63.}
+
+\end{abstract}
+
+\newpage
+
+\section{Introduction}
+
+We propose a new method for solving high-dimensional dynamic programming problems and recursive competitive equilibria with a large (but finite) number of heterogeneous agents. The key to our approach is to exploit symmetry in dynamic programming and concentration of measure to build deep neural networks that are remarkably efficient, generalize well across the entire state space, and are easy to train.
+
+Traditionally, most models in macroeconomics (and other fields) have dealt with either a representative agent (the canonical real business cycle and New Keynesian models) or a continuum of agents (the Aiyagari and Krusell-Smith models). Some models take an intermediate position with two (or a few) agents, for example, models of financial frictions (with a borrower and a lender) or models of international business cycles (with a home country and a foreign country).
+
+More recently, models with many finite agents are becoming very popular, in large part due to the explosion of available microdata. Think about models of industry dynamics with many firms, models with many locations, or models with many households. In fact, one can argue that we only use models with a continuum of agents in macroeconomics or international trade as a convenient abstraction: the U.S. economy had around 128.45 million households in 2020, not an infinite number of them.
+	
+Unfortunately, dealing with multi-agent models is challenging, as we quickly bump into the curse of dimensionality \citep[p. ix]{Bellman1957}. As soon as we have more than a few agents, it becomes nearly impossible to solve these models or take them to the data. As noted by \citet{powell2007approximate}, there are two sources for the curse of dimensionality in dynamic programming. First, the cardinality of the state space is enormous. Second, it is difficult to compute highly dimensional conditional expectations.
+
+To illustrate these two sources, consider the classic multi-region business cycles model of \citet{Backus1992}. In this model, each location (i.e., a country or a region) is characterized by seven state variables. Let us think about a version of this model applied to study the 50 U.S. states. The representative household in California (or any other state) must keep track of its own seven states \textit{and} the seven state variables in each of the other 49 locations of the model, for a total of 350 state variables. Using just a few points in the grid of each state variable (if we rely on value function iteration as our solution method) or employing a few Chebyshev polynomials in each dimension of the problem (if we are using a projection method) will require an amount of computer memory beyond feasibility. Even the most aggressive sparse grid methods \`a la \citet{Brumm2017} cannot handle 350 state variables.
+
+However, not only must the representative household in California keep track of 350 state variables, but also must it compute the conditional expectation of its continuation value function over these 350 states. This computation requires either large sums (if the states are finite) or complex highly dimensional integrals (if the states are continuous). Both tasks become prohibitively expensive as soon as the number of state variables grows above single digits.
+
+One could try to tackle this problem using perturbation methods (as \citealp{Backus1992}, do), but that approach will fail as soon as we incorporate interesting features into the model, such as occasionally binding constraints, or if we are interested in non-ergodic properties of the model (e.g., models without a steady state or with large transitional dynamics).
+
+This simple example might seem discouraging: we cannot even compute a simple economy! But it also suggests intriguing possibilities. For example, does the representative household in California need to keep track of the states of every single other region in the model? Just for a moment, let us imagine that we have a version of the model with only one state variable: a productivity shock, which can be high or low. Following the idea of ``exchangeability'' of \citet{Pakes2001}, under an appropriate symmetry assumption, we only need to keep track of how many regions have a high productivity shock in this period. The indices (e.g., whether California or Texas is the region with high productivity today) are irrelevant. The cardinality of the new state space becomes much smaller: instead of being $2^{50}$ (all the combinations of high/low productivity across the 50 regions), the cardinality is $51$ (do we have zero, one, ..., or $50$ regions with high productivity?). 
+
+But, much more importantly, any function representing the solution to the problem above belongs to the family of symmetric functions, i.e., the solution is a function on a set rather than on a vector space \citep{macdonald1998symmetric}. To formalize this idea, we will introduce the notion of permutation-invariant dynamic programming and describe how we can use powerful theorems to represent functions invariant to permutations. This theorem can lead to an exponential reduction in the dimensionality of the state space, and it sets up a suitable geometry for deep learning approximations. 
+
+This result is very general: it holds in each case where we can find symmetry in the problem. Since we can include heterogeneity among the agents (e.g., the representative household in California is more risk-averse than the representative household in Vermont) in the definition of the states, there will be plenty of cases where symmetry holds.\footnote{Although there are also cases where symmetry does not hold because we cannot easily track heterogeneity as an extra state variable, for example, if the representative household in California has a CRRA utility function and the representative household in Vermont has a CARA utility function. Keeping a whole utility function as a state variable is cumbersome.} In fact, most heterogeneous agent models in economics have a latent but obvious symmetry imposed by the presence of a Walrasian auctioneer. In general equilibrium, the auctioneer collects all the excess supplies of each agent, aggregates them, and sells them. This aggregation removes the indices of agents in the economy and the solution of the model is invariant under all the permutations of other agents' states.\footnote{The symmetry imposed by the auctioneer is often used implicitly in models with heterogeneous agents. In many papers, the problem is manually transformed so that agents only need to forecast the auctioneer's prices, thereby simplifying the state space, even though the forecast of the prices themselves becomes difficult with aggregate shocks. This transformation is at the heart of \citet{krusell1998income} and the recent literature exploiting functional derivatives with perturbations such as \citet{Bilal2021}.} For symmetry to hold, we only require that the agents behave the same when they happen to have the same state values. In other words, if Texas has the same capital, population, and other state variables as California, it would behave as California does. 
+
+Also, our functional representation theorem sheds light on why the method in \citet{krusell1998income} works so well so often. In many models, the moments of the distribution of agents perform the dimensionality reduction required by our theorem either exactly or nearly exactly. In other words, the spirit of our method is to take the ``big K, little k'' approach and generalize it to a ``many big K, one little k'' where each ``k'' can accurately forecast functions of the evolution of the other ``K'' that are invariant to relabeling and permutation. Our approach has two clear advantages. First, we can build from theorems that tell us which representation functions we need, instead of relying on the intuition of the researcher. Second, and we will argue momentarily, our representation theorem is easily implementable with deep neural networks.\footnote{By emphasizing the connection to \citet{krusell1998income}, our method also offers a path forward for models with heterogeneous agents: instead of relying on a continuum approximation, we can have economies with tens of thousands of agents and track the distribution of agents with the same granularity as in the microdata. Alternatively, we can group our agents into bins and use the resulting histogram as a fantastic approximation to a continuum distribution.}
+
+But our argument goes even further. Suppose we have many agents and there is an underlying symmetry assumption. Will we not have something that resembles a law of large numbers when computing the conditional expectation of the continuation value function? Intuitively, suppose the continuation value function does not depend too much on the states of any given agent. In that case, the expected continuation utility will become essentially constant for all draws of (independent) idiosyncratic shocks. Hence, we can calculate the expectation in the continuation utility with a single Monte Carlo draw from the distribution of idiosyncratic shocks (or with a few draws in case we do not have too many agents). 
+
+We prove this possibility by relying on recent developments in high-dimensional probability theory and concentration of measure (\citealp{barvinok2005math}, and \citealp{vershynin2018high}). Loosely speaking, concentration of measure states that a ``well-behaved" (Lipschitz continuous) function that depends on lots of independent random variables is essentially constant (when conditioned on variables with a disproportionate impact on the function.). Applying this idea to the continuation value function: if we have many agents and their idiosyncratic shocks are independent, each draw from the distribution of idiosyncratic shocks will deliver, approximately, the same result. 
+
+In fact, in models with a continuum of heterogeneous agents, economists already use an extreme form of this result: usually, we assume that a law of large numbers holds in the economy regarding the idiosyncratic shocks. Similarly, the use of random simulations to calculate high-dimensional integrals has a long history in many applied fields, such as in \citet{Rust1997} and \citet{Keane1994}. Our paper explains why this feature is natural and pervasive, and how symmetry can simplify the related function approximation, which the literature in past decades could not easily implement as it took place before the recent deep learning revolution.\footnote{As we will explain in \cref{sec:Application}, drawing from the distribution of idiosyncratic shocks, even just once, is the right thing to do. Instead, setting the shocks to zero (as a naive intuition would suggest if the idiosyncratic shocks are Gaussian) would miss the typical set of the distribution, which in high dimensions does not include the mode of the distribution (i.e., zero). Our argument of drawing once from the distribution of idiosyncratic shocks, thanks to concentration of measure, is different from \citet{Judd2017}, who propose precomputing the integrals required in Bellman or Euler equations.}
+
+The beauty of this result is that, instead of having to integrate over the idiosyncratic shocks of each agent and the aggregate shocks to solve the dynamic programming problem of agent $i$, we only need to integrate over the idiosyncratic shocks of agent $i$ and the aggregate shocks, a much more manageable task. In other words: while normally we think of a high-dimensional state space as making integrals more difficult, a large number of shocks make expectations easier to calculate.
+
+With all these results, we define a general class of recursive competitive equilibrium models with heterogeneous agents and establish that the value function and optimal policy of each agent are invariant under permutation of other agents in the economy.  Thus, we take advantage of the representation theorems for permutation-invariant functions and concentration of measure to design a deep neural network architecture that solves, in an incredibly efficient way, a permutation-invariant dynamic programming problem. In particular, we choose training points for the deep neural network inspired by the symmetry of the problem. Our strategy is justified by the observation that neural networks are universal approximators, i.e., they can get $\epsilon$-close to any continuous function (\citealp{cybenko1989approximation}, and \citealp{hornik1991approximation}). Also, neural networks are flexible in their design, and we have efficient software (e.g., Pytorch and TensorFlow) and hardware (e.g., GPUs) platforms for training them. Recall, nonetheless, that the neural networks do not cause a reduction of dimensionality: symmetry does (although we use the idea of symmetry in the design of the architecture of the network).
+
+We illustrate our arguments with a multi-firm variation of the classic \citet{LucasPrescott1971} model of investment under uncertainty. We pick this model for two reasons. First, this model generates one of the simplest nontrivial recursive competitive equilibria. For instance, \citet[ch. 7]{LjungqvistSargent2018} use this model to introduce recursive competitive equilibria to students. Second, by changing just one parameter in the inverse demand function, the model can either have a known and \textit{exact} linear-quadratic (LQ) solution or be fully nonlinear. This makes the \citet{LucasPrescott1971} model the perfect testbed for our method: it is simple and interesting, yet it nests cases with known and unknown solutions.
+
+We solve first the case when the inverse demand function is linear both with the LQ approach and our deep neural network. By benchmarking the solution from our deep neural network against the exact LQ solution, we demonstrate that our deep neural network solution is highly accurate even when we have hundreds of firms across a large section of the state space far outside of the trajectories used for training. Then, we solve the case when the inverse demand function is nonlinear. Our method handles the nonlinear case as easily as the LQ case. In fact, we only need to change
+one parameter value in the deep learning code that solves the model: everything else is exactly as it was for the linear case. While, in this nonlinear case, we do not have an exact solution to benchmark our deep neural network, we still get a highly accurate solution according to the Euler residuals.
+
+Furthermore, we can solve the global solution when the inverse demand function is linear by only fitting it to two data points, regardless of the number of firms. Given that the closed-form model with linearity only requires two parameters, this should not be a surprise. The interesting point is that we can do so even in cases where the guessed solution is heavily over-parameterized (e.g., if we pretend not to know the exact functional form of the solution and, instead, we try to fit a nonlinear solution with $\mapvar{overfit_parameters}$ parameters). An even more exciting result is that this solution is found without directly applying a transversality condition or even using a stationary solution as a special case of a boundary. Despite possibly tens of thousands of parameters, our approach finds the ``right'' equilibrium, which generalizes well outside of the small number of points used in the approximation.\footnote{The mathematical theory of highly over-parameterized models (when the number of parameters $\gg$ the data points) shows that this class of models, when fitted with stochastic optimization algorithms, generalize by converging to a minimum-norm solution within the space of approximating functions (see \citealp{belkin2019reconciling}, and \citealp{ADVANI2020428}). This minimum-norm solution coincides with the equilibrium we are interested in.}
+
+This example also highlights the importance of deep learning for our approach. In the literature on randomized algorithms in IO and labor (e.g., \citealp{Rust1997}, and \citealp{Keane1994}) among many others), functions tend to be approximated in relatively low dimensions. The need for this goes beyond computational tractability: it becomes essential for good generalization and extrapolation performance without overfitting. For many of the same reasons, \citet{Kalouptsidi2017} uses LASSO to select the coefficients of approximating functions, tinkering with the classic bias-variance tradeoff to achieve less overfitting and better generalization. Counterintuitively, by radically increasing the number of parameters, we both perfectly fit the data and achieve outstanding generalization due to the ``double-descent" phenomena.\footnote{Code to implement our methods can be found at \url{https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming}.}
+
+To frame our paper within the literature, notice that symmetry has been applied in economics before. For instance, \citet{hartford2016deep} use permutation-equivariant symmetry in order to reduce dimensionality to study the best responses in a normal form game. \citet{Mertens2018} exploit the symmetry of the DSGE models with incomplete markets and a finite but arbitrarily large number of heterogeneous agents to propose a perturbation approach that overcomes the curse of dimensionality.  Symmetry is also a key component of anonymous games \citep{Jovanovic1988} and in models of Markov perfect equilibria \citep{Pakes2001}, where the idea of symmetry is known as the ``exchangeability assumption'' \citep{aguirregabiria2013}. With respect to this literature, we show that symmetry leads to powerful functional representation theorems and efficient deep neural networks. Notice, as well, that symmetry is implicitly used when economists solve models with a mean-field approximation whenever a continuum of agents is assumed. 
+
+There is a literature on Markov decision processes (MDPs) that uses symmetry to reduce dimensionality, but it has mainly focused on discovering symmetries in MDPs rather than exploiting a priori knowledge of symmetry, as we do; see \citet{ravindran2001symmetries} and \citet{narayanamurthy2008hardness}. 
+
+Using neural networks as a family of approximating functions to solve a stochastic dynamic problem in economics can be traced back to \citet{duffy1997approximating}. Due to recent substantial hardware and software advances in training deep neural networks, this method has become popular in solving dynamic models in economics. See, among others, \citet{MaliarMaliarWinant2019}, \citet{fernandez2019financial}, \citet{duarte2018machine}, and \citet{azinovic2019deep}.
+
+Finally, recent developments in the machine learning literature have exploited symmetry to significantly alleviate the curse of dimensionality in regression and classification problems. For instance, see \citet{Bloem2020}, \citet{zaheer2017deep}, and \citet{yarotsky2018universal}. Our choice of functional representation is also closely linked to the literature of symmetric functions; see \citet{prasad2018introduction} and \citet{zabrocki2015introduction}.
+	
+The rest of the paper is organized as follows. \cref{sec:classic-investment} formally introduces the ideas of permutation-invariant dynamic programming and concentration of measure. \cref{sec:Application} presents our application. \cref{sec:deep-learning-implementation} introduces our deep learning implementation to solve both the case where the inverse demand function is linear and when it is not. \cref{sec:linear-price} further discusses the role of concentration of measure. \cref{sec:extensions} explores the full generality of these techniques. Section \cref{sec:conclusion} concludes.
+
+\section{Permutation-Invariant Dynamic Programming and Concentration of Measure}\label{sec:classic-investment}
+
+This section introduces permutation-invariant dynamic programming and concentration of measure. Permutation invariance will give us a structure in the solution of dynamic programming problems that we can exploit, even when the number of states is large. Concentration of measure will let us deal with the complex conditional expectations that appear in highly-dimensional dynamic programs. In Section \ref{sec:Application}, we will present a multi-firm model of investment under uncertainty where we can apply these two ideas.
+
+But, before introducing these ideas, we briefly discuss the concept of a permutation matrix and the associated symmetric group of permutation matrices under matrix multiplication. 
+
+\subsection{The symmetric group of permutation matrices}\label{sec:symmetric-group}
+
+We denote a column vector of length $N$ of $1$s or $0$s as $\mathbf{1}_{N}$ and $\mathbf{0}_{N}$ respectively. Similarly, we write matrices of size $M\times N$ of $0$s or $1$s as $\mathbf{0}_{MN}$ and $\mathbf{1}_{MN}$ respectively, and an identity matrix of size $N$ as $\mathbf{I}_N$. Notice that $\mathbf{1}_{NN} = \mathbf{1}_N \mathbf{1}_N^{\top}$, a result that will be helpful momentarily.
+
+A permutation matrix is a square matrix with a single $1$ in each row and column and zeros everywhere else. These matrices are called ``permutation'' because, when they premultiply (postmultiply) a conformable matrix $A$, they permute the rows (columns) of $A$. 
+
+Let $\mathcal{S}_N$ be the set of all $n!$ permutation matrices of size $N \times N$. For example,
+\begin{equation*}
+\mathcal{S}_2 = \left\{ \begin{bmatrix}1 & 0 \\ 0 & 1\end{bmatrix},  \begin{bmatrix}0 & 1 \\ 1 & 0\end{bmatrix}\right\}.
+\end{equation*}
+The first element of $\mathcal{S}_2$ is the identity matrix, which leaves rows and columns of a multiplied matrix $A$ unchanged, while the second element swaps the rows or columns of $A$. The set $\mathcal{S}_N$ forms a group under matrix multiplication that is isomorphic to the symmetric group on $N$ letters (i.e., the indeces of agents in the model). See \cref{sec:math-background} for further notation.
+
+\subsection{Permutation-invariant dynamic programming}
+
+We want to study a class of dynamic programming problems where the aggregate state vector $X$ can be permuted. Using recursive notation, we start by defining a general dynamic programming problem for environments with many agents.
+
+\begin{definition}[A ``big $X$, little $x$'' dynamic programming problem] \label{def:dyn-prog}
+Consider the dynamic programming problem:
+\begin{align}
+v(x,X) &=\max_{u}\left\{r\big(x,u,X\big) + \beta \expec{v(x',X')}\right\}\label{eq:bellman1}\\
+\text{s.t. } & x' = g(x,u) + \sigma w + \eta \omega\label{eq:x-lom1}\\
+& X' = G(X) + \Omega W + \eta \omega \mathbf{1}_N \label{eq:X-lom1}. 
+\end{align}
+Here, $x$ is the individual state of the agent, $X$ is a vector stacking the individual states of all of the $N$ agents in the economy, $u$ is the control, $w$ is random innovation to the individual state of the agent, which gets stacked in $W \sim \mathcal{N}(\mathbf{0}_N,\mathbf{I}_N)$ where, without loss of generality $w = W_1$, and $\omega \sim \mathcal{N}(0,1)$ is a random aggregate innovation to all the individual states. Also, $v: \mathbb{R}^{N+1}\rightarrow \mathbb{R}$ is the value function, $r: \mathbb{R}^{N+2}\rightarrow \mathbb{R}$ is the return function, $g:\mathbb{R}^2\rightarrow \mathbb{R}$ is the deterministic component of the law of motion for $x$, $G:\mathbb{R}^N\rightarrow \mathbb{R}^N$ is the deterministic component of the law of motion for $X$, and $\expec{\cdot}$ is the conditional expectations operator.
+\end{definition} 
+
+Extending the previous notation to the case where every agent has several state or control variables is straightforward but tedious. To simplify derivations, from now on, we focus on the case where $r(\cdot)$, $g(\cdot)$, and $G(\cdot)$ are differentiable.
+ 	
+\begin{definition}[Permutation-invariant dynamic programming] \label{def:permutation-inv-dyn-prog}
+A ``big $X$, little $x$'' dynamic programming problem is a permutation-invariant dynamic programming problem if, for all $(x,X)\in \mathbb{R}^{N+1}$ and all permutations $\pi \in \mathcal{S}_N$, the reward function $r$ is permutation invariant:
+\begin{equation}
+r(x,u,\pi X) = r(x,u,X),\label{eq:r-permutation-invariance}
+\end{equation}	
+the deterministic component of the law of motion for $X$ is permutation equivariant:
+\begin{equation}
+G(\pi X) = \pi G(X),\label{eq:G-permutation-equivariant}
+\end{equation}
+and the covariance matrix of the idiosyncratic shocks satisfies	
+\begin{equation}
+\pi \Omega = \Omega\pi.\label{eq:Omega-permutation-equivariant}
+\end{equation}
+\end{definition} 
+
+The previous definition tells us that we are interested in dynamic programming problems where we care, for instance, about the distribution of capital among the agents in the economy, but not whether the agent with high capital is agent 12 or agent 27. If agent 12 swaps her capital with agent 27 (and other relevant states such as her preference shock or income level), the equilibrium dynamics of the economy will remain unchanged. 
+	
+The next proposition shows a basic property of permutation-invariant dynamic programming.
+
+\begin{proposition}[Permutation invariance of the optimal solution]\label{prop:PIDP-optimal-sol-PI} 
+The optimal solution of a permutation-invariant dynamic programming problem is permutation invariant. That is, for all $\pi \in \mathcal{S}_N$: 
+\begin{equation}
+u(x,\pi X) = u(x,X)
+\end{equation} 
+and 
+\begin{equation}
+v(x,\pi X) = v(x,X).
+\end{equation}
+\end{proposition}
+\begin{proof}
+\cref{sec:PIDP-optimal-sol-PI}
+\end{proof}
+
+Building on our previous example, \cref{prop:PIDP-optimal-sol-PI} tells us that, if the equilibrium dynamics of the economy do not change if agent 12 swaps her capital with agent 27, the policy and value functions of agent 1 will not change either. This straightforward property allows us to write the solution of the problem using a remarkable result regarding the representation of permutation-invariant functions.
+
+\begin{proposition}[Representation of permutation-invariant functions]\label{prop:rep-permutation-invariant}
+Let  $f:\mathbb{R}^{N+1} \rightarrow \mathbb{R}$ be a continuous permutation-invariant function under $\mathcal{S}_N$, i.e., for all $(x,X) \in \mathbb{R}^{N+1}$ and all $\pi \in \mathcal{S}_N$:
+\begin{align*}
+f(x, \pi X) = f(x,X).
+\end{align*}
+Then, there exist $L\leq N$ and continuous functions $\rho : \mathbb{R}^{L+1}\rightarrow \mathbb{R}$ and $\phi: \mathbb{R} \rightarrow \mathbb{R}^L$ such that:
+\begin{equation}
+f(x,X) = \rho \left(x,\frac{1}{N}\sum_{i=1}^N\phi(X_i)\right),
+\label{eq:rep_mean}
+\end{equation}
+where $X_i$ is the $i$th element of $X$. 
+\begin{proof}
+The proof can be found in \citet{wagstaff2019limitations}.
+\end{proof}
+\end{proposition}
+
+This result is powerful: if we can find functions $\rho$ and $\phi$ with a small $L$, we can represent highly dimensional functions --such as the policy and value functions of models with high $N$-- very efficiently. For instance, consider the case of one extreme permutation-invariant function: the mean function $f(X) = \frac{1}{N}\sum_{i=1}^N X_i$ (for clarity, in this paragraph and the next only, we will drop the nuisance $x$ variable, since symmetry does not apply to it). Hence, we have the trivial representation $\phi(X_i) = X_i$ and $\rho(y) = y$, where only $L=1$ is required. 
+
+In comparison, other extreme permutation-invariant functions are harder to represent with \cref{prop:rep-permutation-invariant}. Consider the max function: $f(X) = \max\{X_1, \ldots X_N\}$. While there are several ways to represent the max function, all of them require $L = N$.\footnote{For instance, let $\phi(X_i)$ calculate the first $N$ powers of $X_i$ to ensure that the equations are not collinear. Then, $\rho(y)$ solves the system of $N$ equations to reverse-engineer the original $X \in \R^N$ from $y \in \R^N$ before applying the $\max$ itself.}
+
+But the max example should not demoralize us. \cref{prop:rep-permutation-invariant} is an instance of a general class of functional representation theorems. With some minor changes in the proof of \cref{prop:rep-permutation-invariant}, we can reformulate equation \eqref{eq:rep_mean} as $f(x,X) = \rho \left(x,\max\{\phi(X_1), \ldots, \phi(X_N)\}\right)$. In that case, the representation of the $\max$ function becomes trivial, with $\rho(y) = y$, $\phi(X_i) = X_i$, and $L=1$ (of course, this representation would have difficulty representing the mean function, which would now require $L=N$). Many other variations of equation \eqref{eq:rep_mean} are possible.
+
+In other words, if some care is put into how we formulate the representation of the dynamic programming problem, we will have that $L \ll N$ for many cases of interest even if \cref{prop:rep-permutation-invariant} only ensures $L\leq N$. We can use our understanding of the economics of the problem to choose a convenient permutation-invariant reduction in our representation and implement such an approximation in code using what machine learning researchers call a ``pooling layer.''
+
+\paragraph{Implementing the functional representation}
+
+In practice, we will not know $\rho$, $\phi$, or $L$ for most problems. But we will be able to train neural networks to approximate $\rho$, $\phi$, and $L$. Here we highlight two points. First, even when $L$ is high, an $\widehat{L}$ (our guess for $L$ in the architecture of a network) such that $\widehat{L} \ll L$ can be good enough in terms of numerical accuracy. Let us return to our example of the $\max$ function. Despite the theoretical requirement that $L = N$, we can choose $\widehat{L} = 2$. Then, for a fixed $\alpha$, let $\phi(X) = [e^{\alpha C}, x e^{\alpha X}]$ and $\rho([u, v]) = v / u$.  As $\alpha \to \infty$, this approximation will converge to $\max\{X_1, \ldots, X_N\}$ independently of $N$. Depending on the dispersion of $X$, this approximation may or may not be practical. Training a high-dimensional neural network for $\phi$ and $\rho$ with $\widehat{L} = 2$ may find similar representations.
+
+Second, neural networks are very good at fitting cases within a high-dimensional parameter space even when a low-dimensional manifold is sufficient. Thus, if we err by specifying an $L \ll \widehat{L}$ (but still $ \widehat{L} \ll N $), the performance of our neural networks is unlikely to deteriorate. To show this, in \cref{tab:more-linear-performance}, we will solve a model where, thanks to economic theory, we know $L=1$ would be sufficient. Nonetheless, the performance and accuracy of our approximation are nearly identical if we deliberately ignore that knowledge and set $\widehat{L}$ to $16$ and beyond.\footnote{The optimization methods used in deep learning --such as reverse-mode auto-differentiation for gradients-- can effectively deal with high dimensions if the approximation has been transformed to have an easier geometry, as we do with our representation theorem. It is much easier for these optimization algorithms to ignore moments than to ignore grid points if we were implementing a projection.}
+
+\paragraph{Functional representations and the Krusell-Smith method}
+
+We can link \cref{prop:rep-permutation-invariant} with \citet{krusell1998income}: $\widehat{L}$ corresponds to the dimensions that an agent uses to predict the law of motion of the distribution of agents in the economy. For example, if only the first two moments are required to keep track of the distribution, an approximation with $\widehat{L}=2$ here would be sufficient. Nonetheless, researchers have discovered that, even when the distribution is infinite-dimensional, a low $\widehat{L}$ is often sufficient to accurately approximate a distribution.
+
+\subsection{Concentration of measure}\label{subsec:concentration}
+
+We complete this section by introducing the idea of concentration of measure. First, we need to have an appropriate notion of boundedness and how it applies to gradients of functions of Gaussian random variables. 
+	
+\begin{definition}[Bounded functions in $N$]\label{def:bounded-func-N}
+Let: 
+\begin{equation*}
+\mathcal{H}(M) \equiv\{y\in \mathbb{R}^N : |y_i|\leq M ~\forall i=1,...,N\}
+\end{equation*}
+be an $N$-dimensional hypercube in $\mathbb{R}^N$. A function $f:\mathbb{R}^N\rightarrow \mathbb{R}$ is bounded in $N$ if for every $M$ there exists $K_M$ such that
+\begin{equation*}
+\sup_{y\in \mathcal{H}(M)} |f(y)| < K_M,
+\end{equation*}
+where $K_M$ is a constant that does not depend on $N$, but may depend on $M$.
+\end{definition}
+
+A simple example of a symmetric function fulfilling \cref{def:bounded-func-N} is the mean, $f(X) = \frac{1}{N}\sum_{i=1}^N X_i$ since $\sup_{y\in \mathcal{H}(M)} |f(y)|  < M$ for all $N$.  The main purpose of this definition is to reject functions that explode in the number of states, such as the $f(X) = \sum_{i=1}^N X_i$ since $\sup_{y\in \mathcal{H}(M)} |f(y)|  = N M$.
+
+\begin{definition}[Expected gradient bounded in $N$] \label{def:Sobolev-function} Let $f:\mathbb{R}^N\rightarrow \mathbb{R}$ be a bounded function in $N$ and $z\sim \mathcal{N}(\mathbf{0}_N,\mathbf{I}_N)$ be a normalized Gaussian random vector. The function $f$ has its expected gradient bounded in $N$ if there exists a $C$ such that:
+\begin{equation*}
+\expec{\|\nabla f(z)\|^2} \leq \frac{C}{N},
+\end{equation*}
+where $C$ does not depend on $N$.
+\end{definition}	
+
+Loosely speaking, \cref{def:Sobolev-function} tells us that a function has an expected gradient bounded in $N$ when its value does not change too fast when its Gaussian random arguments vary by a small amount.
+
+The next proposition delivers the intuitive result that, for a large $N$, a function $f(\cdot)$ with an expected gradient bounded in $N$ is essentially a constant. That is, the measure of its values is ``concentrating.''
+
+\begin{proposition}[Concentration of measure when expected gradients are bounded in $N$]\label{prop:concentrate-sobolev-func}
+Suppose the random variable $z \sim \mathcal{N}(\mathbf{0}_N,\Sigma)$, has a spectral radius, $\rho(\Sigma)$, independent of $N$. If $f:\mathbb{R}^N \rightarrow \mathbb{R}$ is a function with expected gradient bounded in $N$ and $z^1$ is a single random draw from $z$, then:
+\begin{equation*}
+\prob{\big|f(z^1)-\expec{f(z)}\big|\geq \epsilon} \leq \frac{\rho(\Sigma) C}{\epsilon^2} \frac{1}{N}.
+\end{equation*}
+\end{proposition}
+\begin{proof}
+\cref{sec:concentrate-soblov-func-proof}	
+\end{proof}
+
+As \citet{ledoux2001concentration} puts it: ``A random variable that depends in a Lipschitz way on many independent variables (but not too much on any of them) is essentially constant.'' But, if this is the case, then we can evaluate $\expec{f(z)}$ with a single Monte Carlo draw $z^1$ from $\mathcal{N}(\mathbf{0}_N,\Sigma)$: $\expec{f(z)} \approx f(z^1)$. 
+
+It is usually better to approximate $\expec{f(z)}$ by $f(z^1)$ than by $f(\mathbf{0}_N)$, that is, $f(\cdot)$ evaluated at the mean of the distribution. An $N$-dimensional Gaussian random variable concentrates on a hypersphere of radius $\sqrt{N}$, rather than at the origin. This hypersphere is the typical set relevant to compute $\expec{f(z)}$ when $f(\cdot)$ is not linear. Also, the distance between the typical set and the origin increases with $N$ grows.\footnote{See \citet{vershynin2018high} and \citet{FVGG2021} for details.} Even when $N$ is not sufficiently large for a single Monte Carlo draw to be accurate enough, concentration of measure tells us we can still get high numerical accuracy when we evaluate an expectation by drawing a small number of $\set{z^1, \ldots z^M}$: $\expec{f(z)} \approx \frac{1}{M}\sum_{i=1}^M f(z^i)$.
+
+There is an important difference between the functional representation in \cref{prop:rep-permutation-invariant}, an implicit dimensionality reduction result, and our concentration measures, which provide an upper bound on the error of the evaluation of the expectation. Also, the results of \cref{prop:concentrate-sobolev-func} rely on ensuring that \cref{def:Sobolev-function} holds, and does not require any symmetry.  However, we conjecture that permutation invariance and \cref{def:bounded-func-N} are sufficient for \cref{prop:concentrate-sobolev-func} to hold (i.e., \cref{def:Sobolev-function} is implied). Loosely, functions that are invariant to permutations either have a concentration of measure or are unbounded in $N$. In particular, functions like $f(X) = \sum_{i=1}^N X_i$ do not fulfill \cref{def:bounded-func-N}, but are of limited use since expectations diverge as $N$ increases.\footnote{To understand the intuition, consider that the key criterion for a concentration of measure is that a single random variable cannot affect the result a disproportionate amount relative to the others. Permutation invariance implies that individual variables affect the function in a symmetric way, and the same applies to their gradients (i.e., if $f(X)$ is permutation invariant, then $\nabla f(X)$ is permutation equivariant). If the function does not explode as $N$ increases (i.e., \cref{def:bounded-func-N}), then symmetry ensures that all of the elements of $\nabla f(z)$ are of the same scale relative to $N$, ensuring that \cref{def:Sobolev-function} is fulfilled.}
+
+This helps explain part of the \citet{krusell1998income} intuition where ``agents'' do not need to calculate any integrals, since they can simply use the approximate law of motion of the simulation itself (after conditioning on an aggregate shock, as we do here) to form expectations of the distributional variables.  Similarly, continuous-time mean-field games \citep{KaplanMollViolante2018} implicitly use the exchangeability of all agents with identical states to define permutation-invariant functions, and this leads to a concentration of measure for all payoff relevant values.
+
+\section{An Application: A Model of Investment}\label{sec:Application}
+	
+To illustrate how permutation-invariant dynamic programming and concentration of measure operate in a popular economic application, we propose an extension of the classic model of investment under uncertainty by \citet{LucasPrescott1971}. We will consider an industry with a large number of firms and follow the recursive formulation in \citet{PrescottMehra1980}. In contrast to \citet{LucasPrescott1971}, we will not require that all firms have symmetric states, just that they have symmetric policy functions. 
+
+More concretely, we study an industry consisting of $N \geq 1$ price-taking firms, each producing a single good using capital under constant returns to scale. By picking appropriate units, we can consider that a firm $i$ produces output $x$ with $x$ units of capital. We can stack the production (or capital) of the whole industry in the vector $X \equiv [x_1, \ldots x_N]^\top$.
+
+The capital of the firm depreciates at a rate $\delta\in [0,1]$, is increased by investment $u$, and is shifted by an i.i.d. idiosyncratic shock $w \sim \mathcal{N}(0,1)$ and a single i.i.d. aggregate shock, $\omega \sim \mathcal{N}(0,1)$, common to all firms (adding persistence for the shocks is trivial but complicates notations). Thus, the law of motion for capital is: 
+\begin{equation*}
+x' = (1-\delta)x + u + \sigma w + \eta \omega.
+\end{equation*}
+Although this law of motion allows for capital to be negative, we will consider only the cases where $x>0$ (for instance, because investment is sufficiently large on average in relation to the standard deviation of the idiosyncratic and aggregate shocks and, therefore, $x<0$ only occurs with a trivially small probability). Due to adjustment frictions, investing $u$ has a cost, in valuation terms, $c(u) = \frac{\gamma}{2}u^2$.
+
+We assume that the inverse demand function for the industry is, for some $\nu \geq 1$:
+\begin{equation}
+p(X) = \alpha_0 - \alpha_1 \frac{1}{N}\sum_{i=1}^N x_i^{\nu}.
+\label{eq:p-nonlinear-PI}
+\end{equation}
+When $\nu = 1$, this inverse demand function means that the model can be represented as a linear-quadratic (LQ) dynamic programming problem as described in \citet[Section 7.2]{LjungqvistSargent2018}, except with $N \geq 1$ firms. When $\nu > 1$, we will have a fully nonlinear model.
+	
+Since we will be looking at competitive equilibria where a firm is a price taker, the firm does not consider the impact of its individual decisions on $p(X)$. Also, all firms use their cash flow to finance their investment, $u$. Hence, the period profits of firm $x$ are:
+\begin{equation*}
+\text{profits} = p(X)x-\frac{\gamma}{2}u^2.
+\end{equation*}
+The dynamic problem of the firm is to choose $u$ to maximize the expected present discounted value of the firm at discount rate $\beta$. The corresponding Bellman equation of the firm takes the evolution of $X$ as given and determined by the equilibrium policy of all firms, including itself. 
+
+First, we write such a Bellman equation considering $X$ as a vector, as it is the most common practice in economics.
+
+\paragraph{Bellman equation with vector $X$} The firm of interest with capital $x$ takes a symmetric policy $\hat{u}(\cdot,X)$ as given for all other firms in $X$. Without loss of generality, we assume that the firm is the first in the vector, i.e., $x = X_1$.  With this assumption, we can write the recursive problem of the firm taking the exogenous policy $\hat{u}(\cdot, X)$ as:
+\begin{align}
+v(x,X) &=\max_{u}\left\{p(X)x -  \frac{\gamma}{2} u^2 + \beta \expec{v(x',X')}\right\}\label{eq:general-bellman-vec}\\
+\text{s.t. } & x' = (1-\delta)x + u + \sigma w + \eta \omega\label{eq:general-x-lom-vec}\\
+& X'_i = (1-\delta)X_i + \hat{u}(X_i,X) + \sigma W_i + \eta \omega,\quad\text{for } i \in \{2,...,N\}\label{eq:general-x-i-lom-vec}\\
+& X'_1 = (1-\delta)X_1 + \hat{u}(X_1,X)+\sigma w + \eta \omega. \label{eq:general-x-1-lom-vec}
+\end{align}
+
+Four points deserve further explanation. First, the expectation in equation \eqref{eq:general-bellman-vec} is taken over the i.i.d. idiosyncratic shocks $\set{w, W_2, \ldots W_N}$ and the aggregate shock $\omega$. Second, equation \eqref{eq:general-x-lom-vec} is the law of motion of capital of the firm given its control $u$. Third, equation \eqref{eq:general-x-i-lom-vec} is the forecast the firm makes over the evolution of the distribution of capital of all firms given the exogenous policy. Fourth, equation \eqref{eq:general-x-1-lom-vec} takes care of the contribution of the firm's own policy to the aggregate state $X$. When $\sigma > 0$, we can let the firm consider that $w = W_1$. When $N$ is sufficiently large, this becomes irrelevant for the optimal $u$ and we could remove the special case of that correlated shock, combining \eqref{eq:general-x-1-lom-vec} into \eqref{eq:general-x-i-lom-vec}.  When $N=1$, this formulation nests the textbook ``big-K, little-k'' example derived in \citet{LjungqvistSargent2018}, Section 7.2.
+	
+Next, we show that it is easy to rewrite the previous problem considering $X$ as a set. While both formulations look similar cosmetically, the conditions for treating the aggregate distribution as a set rather than a vector are essential to our method.
+
+\paragraph{Bellman equation with set $X$} 
+To use our results, we need to show that the investment model described in \cref{eq:general-bellman-vec,eq:general-x-lom-vec,eq:general-x-1-lom-vec,eq:general-x-i-lom-vec} satisfies all the conditions of a permutation-invariant dynamic programming problem in \cref{def:permutation-inv-dyn-prog}. 
+
+First, to show that the payoff is permutation invariant according to equation \eqref{eq:r-permutation-invariance}, it is sufficient for the $p(X)$ function in equation \eqref{eq:p-nonlinear-PI} to be permutation invariant. This is easily shown since the function is an affine transformation of a  power mean.
+
+Second, the law of motion must be permutation equivariant according to equation \eqref{eq:G-permutation-equivariant}. \cref{sec:lin-quad-proof} shows this formally, but the intuition is that, conditional on a permutation-invariant $\hat{u}(\cdot, X)$, we can apply a $\pi$ to reorder any of the indices in equations \cref{eq:general-x-i-lom-vec,eq:general-x-1-lom-vec}, i.e., $X'_i = (1-\delta) X_i + \hat{u}(X_i, X)$ to $X'_j = (1-\delta) X_j + \hat{u}(X_j, \pi X)$ since $\hat{u}(X_j, \pi X) = \hat{u}(X_j, X)$. The permutation equivariance is a direct consequence of symmetric equilibrium.
+
+Finally, to show that the covariance matrix fulfills condition \cref{eq:Omega-permutation-equivariant} from equations \cref{eq:general-x-i-lom-vec,eq:general-x-1-lom-vec}, notice that the idiosyncratic shocks of other agents are embodied in the identity matrix times $\sigma$. Therefore, for all permutations $\pi \in \mathcal{S}_N$, $\pi \sigma \mathbf{I}_N = \sigma \mathbf{I}_N$.
+	 
+Hence, by \cref{prop:PIDP-optimal-sol-PI}, the solution to the investment model $(u,v)$ is permutation invariant and can be treated as a function on sets rather than a vector space (i.e., the ordering of the inputs does not matter). If we create a tuple of the states and the corresponding shocks as $(X,W)$, the set equivalent of equations \cref{eq:general-x-i-lom-vec,eq:general-x-1-lom-vec} becomes:
+\begin{align}
+X' = &\left\{(1-\delta)\hat{x} + \hat{u}(\hat{x},X) + \sigma \hat{w} + \eta \omega \text{ for all } (\hat{x},\hat{w}) \in (X,W) \setminus (x,w)\right\}\nonumber\\
+\cup &\left\{(1-\delta)x + \hat{u}(x, X) + \sigma w + \eta \omega\right\}\label{eq:general-X-law-full}.
+\end{align}
+ 	 
+As before, the special case of the $x$ in expression \cref{eq:general-X-law-full} is to ensure the firm does not take its choice into account when forecasting $X'$, but can still allow for the correlation of shocks when calculating expectations.  While this is important for correctness with very small $N$ --and in particular nesting the $N=1$ case-- it has almost no quantitative impact as $N$ increases. For that reason, we will drop the special case in further calculations in this section, effectively decoupling $x$ from the set $X$. Since the forecast $X'$ is only used for expectations, this is equivalent to assuming that the firm does not take into account that its contribution to $X$ is correlated with its own shock when calculating expectations of $X'$.
+
+Using this simplification, we can rewrite equations \cref{eq:general-bellman-vec,eq:general-x-lom-vec,eq:general-x-1-lom-vec,eq:general-x-i-lom-vec} as: 
+\begin{align}
+v(x,X) &=\max_{u}\left\{p(X)x - \frac{\gamma}{2}u^2 + \beta \expec{v(x',X')}\right\}\label{eq:general-bellman-PI}\\
+\text{s.t. } & x' = (1-\delta) x + u + \sigma w + \eta \omega\label{eq:general-x-lom}\\
+& X' = \left\{(1-\delta)\hat{x} + \hat{u}(\hat{x},X) + \sigma \hat{w} + \eta \omega \text{ for all } (\hat{x},\hat{w}) \in (X,W)\right\}.\label{eq:general-X-law}
+\end{align}
+	
+The expectation in \cref{eq:general-bellman-PI}  is taken over $w \in \R$, $\omega \in \R$, and $W \in \R^N$, all independent normal shocks. This reformulation allows us to solve for the equilibrium with functions on sets rather than vectors and to use the representation in \cref{prop:rep-permutation-invariant}.
+	
+Since the problem fulfills the requirements of \cref{def:permutation-inv-dyn-prog} for any permutation-invariant $\hat{u}(\cdot, \cdot)$, \cref{prop:PIDP-optimal-sol-PI} tells us that we have a permutation-invariant optimal solution. Since in the symmetric equilibrium every agent solves the same policy, the $\hat{u}(x,X)$ is also permutation invariant, which we needed to ensure that the law of motion, \cref{eq:G-permutation-equivariant}, is equivariant. Thus, we are ready to define a symmetric competitive equilibrium.
+
+\begin{definition}
+An equilibrium is a $v(x,X)$ and $\hat{u}(x,X)$ such that:
+\begin{itemize}
+\item Given $\hat{u}(x,X)$, $v(x,X)$ is the value function solving \cref{eq:general-bellman-PI} for each agent and $u(x,X)$ is the optimal policy function.
+\item The optimal policy is symmetric, i.e., $u(x,X) = \hat{u}(x,X)$.
+\end{itemize}
+\end{definition}
+
+In this paper, we focus on problems for which the optimal solution is unique and can be found via an Euler equation, though our techniques are not specific to that class of models. 	
+
+\begin{proposition}\label{prop:invariant-euler}
+For a permutation-invariant $p(X)$, the Euler equation takes the form:
+\begin{gather}
+\gamma u(x,X) = \beta \expec{P(X')+\gamma (1-\delta) u(x',X') }\label{eq:prop-x-euler-mu-zero}\\
+X' = \left\{(1-\delta)\hat{x} + u(\hat{x},X) + \sigma \hat{w} + \eta \omega, \text{ for }  (\hat{x}, \hat{w}) \in (X,W)\right\}\label{eq:prop-x-hat-lom-mu-zero}.
+\end{gather}
+\begin{proof}
+See \cref{sec:proof-permutation-invariant-equilibrium}.
+\end{proof}
+\end{proposition}
+
+The economic interpretation of the Euler equation \cref{eq:prop-x-euler-mu-zero} is standard. The firm weighs the marginal cost of an additional unit of investment, $\gamma u(X)$, against the benefit of additional profits from that marginal increase in output at a price $p(X')$ plus the value of investment after depreciation. In this application, the policy becomes independent of $x$. That result is, however, incidental. If we had some curvature on $x$ in the revenue function (as we will have in an extension in \cref{sec:curvature-revenue-function}), the policy would not be independent of $x$.
+	
+\paragraph{Dimensionality of the problem} While seemingly simple, the dimensionality of the Euler equation \cref{eq:prop-x-euler-mu-zero} is nontrivial. If $N=1,000$, then $u(x,X)$ is a policy function on a 1,001 dimensional state-space. Furthermore, even given a $u(x,X)$ function, the expectation is taken over 1,001 dimensions. It is not feasible to solve this problem with standard methods.
+
+But hope is not lost.  First, think about the expectation in the simple case of $\eta = 0$ but $\sigma > 0$: while considering 1,000 individual forecasts of $x'$ from \cref{eq:prop-x-hat-lom-mu-zero} is computationally intractable, a firm may have an accurate forecast of functions of the distribution of $x'$. In fact, the firm does not care about the individual $x'$ unless its $u(\cdot,X)$ depends a great deal on a single $\hat{x}$.
+
+In the case where firms do not care about the individual $x'$, a forecast of the distribution is good enough. Furthermore, when $\eta = 0$ and $N$ is large, the distribution evolves almost deterministically. Similarly, even when there are aggregate shocks, an agent may have an accurate forecast of functions of the distribution \textit{conditional} on the realization of an aggregate shock. The extreme case of this result appears in models \`a la Aiyagari-Krusell-Smith. With a continuum of agents, we only care about the distribution, not the position of each agent on it.
+
+Next, consider the structure of $u(\cdot,X)$. Since the price function was invariant to permutations, we know that the policy function will be invariant as well. Hence, even if the firm cannot accurately predict an individual $\hat{x} \in X$ without large amounts of computations, it only needs to predict the general distribution of $X'$, rather than each element in it. 
+
+If $u(\cdot)$ and $p(\cdot)$ are functions of a large number of random $\hat{x}' \in X'$, but do not depend too much on any individual one of them (as defined by the notion of bounded gradients, \cref{def:Sobolev-function}), then the expectation conditional on the aggregate shock may be close to a deterministic function. Then, $p(X')$ and $u(\cdot,X')$ are fully predictable. Thus, for a large enough $N$, we can exploit \cref{prop:concentrate-sobolev-func} and use a single Monte Carlo draw of individual shocks. 
+
+In the case of a linear $p(\cdot)$, we could rely on certainty equivalence and normalize $\hat{w} \in W$ to have zero mean. However, when $p(\cdot)$ is not linear, we draw a random $W$. As emphasized in Subsection \ref{subsec:concentration}, high-dimensional expectations of a function $f(\cdot)$ are not well approximated by the function evaluated at its mode, but are well approximated with random draws from the distribution itself.
+   
+\section{A Deep Learning Implementation}\label{sec:deep-learning-implementation}
+
+Our goal is to find a policy function, $u(X)$, that satisfies \cref{prop:invariant-euler} (we will drop the dependence of $u$ on $x$ when we want to highlight that we are searching for the policy function of all firms). While we are interested in a global solution, we will not require that solutions be accurate for all $X \in \mathcal{X}$. We just want the $u(\cdot)$ to generalize well on paths $\set{X^1_t, X^2_t, \ldots X^J_t}_{t=0}^T$ that are likely were we to start from some distributional initial conditions $\set{X^1_0, X^2_0, \ldots X^J_0}$ of interest. Fortunately, we will see that the solutions we find will, quite often, be accurate in a much larger set of points.
+
+Our strategy is to exploit the representation in \cref{prop:rep-permutation-invariant}:
+\begin{equation*}
+u(x, X) =\rho \left( x, \frac{1}{N}\sum_{i=1}^{N} \phi(X_i) \right),
+\end{equation*}
+since it encodes the symmetry built into our model. We approximate $\rho$, $\phi$, and $L$ using a deep learning architecture $\cal{F(\theta)}$, where $\theta$ is the vector of weights in the network. As a result, we get a parameterized policy function $u(x,X;\theta)$ that is as close as possible to $u(x, X)$ under some appropriate metric. This strategy is much more efficient than implementing a blind neural network and resembles similar applications in other environments.\footnote{For instance, \citet{hartford2016deep} use permutation-equivariant symmetry to reduce dimensionality in the approximation of best responses in a normal form game.}
+
+\subsection{Architecture of the network}
+
+We specify three different network architectures to deal with $\phi$. First, we approximate $\phi$ as a function of a first moment of $X$ \`a la Krusell-Smith, but allowing this moment to enter in a fully nonlinear way as in \citet{fernandez2019financial}. We call this approximation $\phi(\text{Identity})$. Second, we approximate $\phi$ as in the first architecture, but using four moments. We call this approximation $\phi(\text{Moments})$. Third, we approximate $\phi$ with a flexible ReLU network, with \mapvar{ReLU_phi_layers_text} layers each with \mapvar{ReLU_phi_dim} nodes.\footnote{A rectified linear unit (ReLU) is an activation function $f(x;\theta_1, \theta_2) = \theta_1 \max\left(0,\theta_2 x,\right)$, where the $\max$ is the point-wise maximum,  and $\theta_1$ and $\theta_2$ are weights found in the training procedure.} We call this approximation $\phi(\text{ReLU})$. Across all of their layers, the baseline $\phi(\text{Identity})$, $\phi(\text{Moments})$, and  $\phi(\text{ReLU})$ have \mapvar{Identity_parameters}, \mapvar{Moments_parameters}, and \mapvar{ReLU_parameters} parameters respectively, regardless of $N$. 
+
+\begin{figure}[h!]
+\begin{center}
+\includegraphics[width=\linewidth]{../figures/moments_euler_network.pdf}
+\caption{Moments architecture; $M$ is the number of moments.}
+\label{fig:momentsarch}
+\end{center}
+\end{figure}
+
+In these three architectures, $\rho$ is represented by a neural network with \mapvar{Moments_rho_layers_text} layers, each with \mapvar{Moments_rho_dim} nodes.\footnote{Experience suggests it is better to be deep than wide for the same number of parameters, though the computer science theory explaining this result is in its infancy.} Figures \ref{fig:momentsarch} and \ref{fig:ReLUarch} illustrate these three architectures.
+
+\begin{figure}[h!]
+\begin{center}
+\includegraphics[width=\linewidth]{../figures/deep_sets_net.pdf}
+\caption{ReLU architecture}
+\label{fig:ReLUarch}
+\end{center}
+\end{figure}
+
+\subsection{Training the network}
+
+We will train the network by minimizing the Euler residuals defined when we plug $u(x,X;\theta)$ into equation \cref{eq:prop-x-euler-mu-zero} instead of $u(x,X)$, and using equation \cref{eq:prop-x-hat-lom-mu-zero} for the law of motion of $X'$:
+\begin{align}
+\varepsilon(x,X;\theta) &\equiv \gamma u(x,X;\theta) - \beta \expec{P(X') +\gamma (1-\delta) u(x',X';\theta) }.\label{eq:euler-error}
+\end{align}
+
+More concretely, we evaluate $\varepsilon(x,X;\theta)$ using simulations from a single initial condition and only \mapvar{train_trajectories} trajectories from $t=0$ to \mapvar{max_T} (including both aggregate and idiosyncratic shocks). We call the evaluated Euler error, in each simulation $m$ and period $t$, $\varepsilon_{m,t}(x,X;\theta)$. We use the concentration of measure described in \cref{sec:concentration-measure-defs} to calculate the integral over the $W$ shocks in \cref{eq:prop-x-euler-mu-zero}. To do so, though, we must condition on the aggregate $\omega$ shock to ensure that \cref{def:Sobolev-function} holds.
+
+Finally, we minimize the sum of square Euler errors:
+\begin{equation}
+\min_{\theta} \frac{1}{M}\sum_{m=1}^{M} \sum_{t=0}^{T}\left( \varepsilon_{m,t} (x,X;\theta) \right)^2 \label{eq:objective}
+\end{equation}
+using ADAM, a stochastic gradient descent with adaptive moment estimation, although any other suitable optimization algorithm could be applicable.
+
+The pseudocode below summarizes our steps.
+
+\renewcommand{\thealgorithm}{}
+\begin{algorithm}[H]
+\caption{Network training} 
+\begin{algorithmic}[1]
+
+\State Given by network architecture $\cal{F(\theta)}$ for $u(x,X)$, define the Euler residuals:\vspace{-0.1in}
+\begin{equation*}
+\varepsilon(x,X;\theta) \equiv \gamma u(x,X) - \beta \expec{P(X') +\gamma (1-\delta) u(x',X') }
+\end{equation*}
+\vspace{-0.22in}
+
+\State Pick $\{X^m(0),..., X^m(T)\}$ for $m=1,.., M$ trajectories given some initial point of interest.\vspace{0.1in}
+
+\State Evaluate $\varepsilon_{m,t}(x,X;\theta)$ for some or all the points above.\vspace{0.1in}
+
+\State Solve:
+\vspace{-0.1in}
+\begin{equation*}
+\min_{\theta} \frac{1}{M}\sum_{m=1}^{M} \sum_{t=0}^{T}\left( \varepsilon_{m,t} (x,X;\theta) \right)^2\end{equation*}
+\vspace{-0.11in}
+
+\end{algorithmic} 
+\end{algorithm}
+
+We highlight three additional points. First, we found in preliminary testing that it is not important for the performance of the training that the transition be very close to any stationary solution (i.e., this does not require a hidden transversality condition or some form of backward induction from a steady state) or that a small or large number of trajectories are used. In fact, in \cref{sec:transversality}, we solve a version with only a few of those data points.
+
+Second, there are different possibilities regarding the choice of points to evaluate the Euler errors. The points can be some collocation nodes, simulated points \`a la Rust, or many others. Our main divergence from collocation-style approaches is that, when we minimize the Euler errors, we use relatively few points in $\mathcal{X}$ and ignore stationarity in both the simulation and the solution. Our method succeeds because, as we will see later, the approximations it finds for $u(\cdot)$ i) generalize and extrapolate well outside of the evaluated points; and (ii) provide stable solutions that converge to the ergodic sets and do not violate transversality. Neither of those conditions would hold, in general, for classical collocation-style solutions.
+
+Third, a surprising benefit of a high-dimensional approximation is the ``double-descent'' phenomenon in machine learning (see \citealp{belkin2019reconciling}, and \citealp{ADVANI2020428}). In classical statistics, the bias-variance trade-off tells us that the generalization error of a function approximation becomes large when the number of free parameters approaches the number of data points (at the limit, when the number of free parameters is equal to the number of data points, we are just interpolating). For that reason, one typically wants to choose a smaller number of free parameters than the number of data points. Furthermore, we know that when we are exactly interpolating, the approximation can be especially poor exactly at the edges (e.g., Runge's phenomenon), which also makes extrapolation fail in general. The double-descent phenomenon, which is shown with many machine learning algorithms, is that if one \textit{further} increases the number of parameters far above this interpolation threshold, then the generalization error begins to decrease again. Often, the cure to over-fitting is to add more parameters. We explore this topic in \cref{sec:transversality}, where we consider the lack of treatment of transversality conditions and stationarity in more detail.
+
+ \subsection{Case I: $\nu= 1$}\label{caseI}
+
+We implement our deep learning architectures by fixing most of the model parameters at conventional levels: $\sigma = \mapvar{sigma}, \eta = \mapvar{eta}, \alpha_0 = \mapvar{alpha_0}, \alpha_1 = \mapvar{alpha_1}, \beta = \mapvar{beta}$, and $\gamma = \mapvar{gamma}$. To match a common feature of the data, we make the standard deviation of the idiosyncratic shock much larger than the standard deviation of the aggregate shock. Also, in this way, concentration of measure phases in more slowly, better showing its power to approximate expectations even in challenging parameterizations. 
+
+In this subsection, we set $\nu= 1$, the last parameter of the model. We pick this parameterization because, with it, our investment model becomes an LQ dynamic programming problem that we can solve using classical optimal control as described in \citet{anderson1996mechanics}. This will give us an exact solution (up to machine precision) with the form:
+\begin{equation*}
+u(X) = H_0 +\frac{1}{N}H_1\sum_{i=1}^N x_i,
+\end{equation*}
+where $H_0$ and $H_1$ are scalars. In this case, regardless of the number of firms $N$, the problem is two dimensional in the space of parameters. See \cref{sec:v-LQ-representation} for the functional representation of $v(x,X)$. We can use this exact solution to benchmark our deep learning approximations. 
+
+Notice how in terms of our \cref{prop:rep-permutation-invariant},
+\begin{equation*}
+u(X) = H_0 +\frac{1}{N}H_1\sum_{i=1}^N x_i = \rho \left( \frac{1}{N}\sum_{i=1}^{N} \phi(X_i) \right),
+\end{equation*} 
+where $\phi: \mathbb{R}\rightarrow \mathbb{R}^1$ (i.e., $L=1$) is the identity function $\phi(X) = \begin{bmatrix} X \end{bmatrix}$ and $\rho:\mathbb{R}^1 \rightarrow \mathbb{R}$ such that $\rho(y) =  H_0 + H_1 y$ for some undetermined $H_0$ and $H_1$. However, we will \textit{not} supply this information to our deep learning architectures. We want to gauge whether they can ``learn'' this form all by themselves.
+
+\cref{fig:linear-baseline-theory-vs-predicted} plots investment decision $u(X_t)$ along the equilibrium path of an economy with 128 firms and aggregate shocks over a simulation of 63 periods for our four solutions. The blue dashed trajectory provides the LQ solution, the orange trajectory depicts the solution obtained by $\phi\big(\text{Identity}\big)$, the green trajectory depicts the solution obtained by $\phi\big(\text{Moments}\big)$, and the red trajectory depicts the solution obtained by $\phi(\text{ReLU})$. All four paths are almost identical. This shows that our deep learning solutions are incredibly accurate even when, as in this figure, the initial conditions are such that $u(X_0)$ (slightly below 0.024) is far from its mean value in the ergodic distribution of the economy (around 0.034). The neural networks ``learn'' very quickly that the solution is $u(x, X) = H_0 +\frac{1}{N}H_1\sum_{i=1}^N x_i$ even if they never get such information.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.7\linewidth]{../figures/linear-baseline-theory-vs-predicted.pdf}
+\caption{Comparison between the LQ-regulator solution and our three deep learning  archictures for the case with $\nu= 1$ and $N=\mapvar{N}$.}
+\label{fig:linear-baseline-theory-vs-predicted}
+\end{figure}
+
+The accuracy of the approximation is confirmed by \cref{fig:identity-moments-deep-sets-linear-residual}, which shows the mean squared error of the Euler residuals at each time step on the equilibrium path (averaged over $\mapvar{test_trajectories}$ different simulated trajectories) and the corresponding $95$th percentile bandwidth of those errors. The left panel shows the results for $\phi(\text{Identity})$, the center panel shows the results for $\phi(\text{Moments})$, and the right panel shows the results for $\phi(\text{ReLU})$. While all architectures are highly accurate, the ReLU architecture is especially stable. This result can be interpreted as the function generalizing very consistently because of ---rather than in spite of--- the extra parameters of this architecture.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\linewidth]{../figures/identity_moments_deep_sets_linear_relative}
+\caption{The Euler residuals for $\nu= 1$ and $N=\mapvar{N}$ for $\phi(\text{Identity})$, $\phi(\text{Moments})$, and $\phi(\text{ReLU})$. The dark blue curve shows the average residuals along equilibrium paths for $\mapvar{test_trajectories}$ different trajectories. The shaded areas depict the $2.5$th and $97.5$th percentiles.}
+\label{fig:identity-moments-deep-sets-linear-residual}
+\end{figure}
+
+While these figures show that the solution is very accurate, we need to gauge whether the performance is practical, and whether the curse of dimensionality has been sidestepped. \cref{fig:deep-sets-linear-profiling-var-n} shows the performance for $\phi(\text{ReLU})$, the more densely parameterized architecture, as a function of $N$. The left panel shows the computation time in seconds.\footnote{The time is calculated from the beginning of the fitting process until the mean squared Euler error reaches  $\mapvar{stop_threshold}$, which is chosen to be on the same order of magnitude as the error coming from the concentration of measure approximation of the integral in \cref{fig:concentration_euler_residual_linear} when $N = $\mapvar{N}.} The right panel shows the MSE of Euler residuals (i.e., $\varepsilon$) on the test data. The reported numbers are the median values of $\mapvar{trials}$ trials with different seeds. The algorithm finds the global solution of the model with high accuracy in just around a minute. Furthermore, this computation is not a systematic function of $N$, but of order \bigO{1} for reasonable $N$. The variation in solution time is largely due to the use of random initial conditions in a high-dimensional space (the \mapvar{ReLU_parameters} parameters).
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\linewidth]{../figures/deep-sets-linear-profiling-var-n}
+\caption{Performance of the $\phi(\text{ReLU})$ for different $N$.}
+\label{fig:deep-sets-linear-profiling-var-n}
+\end{figure}	
+	
+Finally, \cref{tab:linear-performance} shows the results for different variations in the approximations, $\phi(\text{Identity})$, $\phi(\text{ReLU})$, and $\phi(\text{Moments})$.  The columns are as follows: Time is measured in seconds. Params represents the number of parameters $(\theta)$ in functional approximation, in thousands. Train MSE reports the mean squared error of the Euler residuals for the simulated trajectories used for training. Test MSE documents the mean squared error of the Euler residuals on simulated data after the training is complete, and which internally uses the approximation itself during the simulation. Val MSE displays the mean squared error on the validation data, that is, trajectories used to check the quality of the generalization during the training process, but where the data are not used to fit the model directly. Policy error $(\big|u-u_{\text{ref}}\big|)$ is the mean absolute value of the approximate solution and the accurate solution $(u_{\text{ref}})$ on the test data. Policy error $\left(\frac{|u-u_{\text{ref}}|}{u_{\text{ref}}}\right)$ is the mean absolute value of the relative error of the approximate solution and the accurate solution $(u_{\text{ref}})$ on the test data. The results in \cref{tab:linear-performance} are the median among $\mapvar{trials}$ trials with different seeds. See \cref{tab:more-linear-performance} in \cref{subsec:tab-longer-linear-prices} for additional experiments. 
+
+%\renewcommand{\arraystretch}{1.2}
+%\begin{table}[h!]
+%\caption{Performance of different networks in solving case I: $\nu=1$}\vspace{-0.1in}
+%\begin{center}
+%\resizebox{\textwidth}{!}{\begin{tabular}{c}
+%\input{../figures/linear_performance_table.tex}
+%\end{tabular}}
+%\end{center}
+% \label{tab:linear-performance}
+%\end{table}
+%\renewcommand{\arraystretch}{1.0}
+
+The first lesson from \cref{tab:linear-performance} is that the results are mainly robust to variations in the networks' architecture. However, for small networks, as in the case of the {\it Very Shallow} example in $\phi(\text{Moments})$, sometimes the optimization procedure finds a local minimum that is not close to the global minimum solution. Not coincidentally, this is the model with the fewest number of parameters, which should give us pause since it is still orders of magnitude above the dimensionality of $2$ parameters required for the analytical solution. Also, the case $\phi(\text{ReLU})$, with  Deep $(\phi : 4$ layers, $\rho: 8$ layers) is unsatisfactory. This result highlights the importance of exploring different networks' architectures, something easily done with modern machine learning libraries.
+
+The second lesson from \cref{tab:linear-performance} is that the results are, in  general, good when we use a larger number of moments (equivalently, a higher dimension of $L$) than when we use only the first moment ($L=1$, which we know from the analytical solution is a sufficient statistic for payoff-relevant values). Compare, for example, the $\phi(\text{Identity})$ case with $\phi(\text{ReLU}(L = 16))$. The latter solves the model with many more parameters, but the neural network finds the lower-dimensional manifold in about the same amount of time.
+
+\subsection{Case II: $\nu>1$}\label{sec:nonlinear-model}
+
+Now, we move to the case where $\nu >1 $, i.e., the inverse demand function is nonlinear, while all the other parameter values are the same as before. Nonetheless, we can find the solution to this nonlinear case using exactly the same algorithm, code, and functional approximations as in \cref{caseI}: we just change, in our code, the value of $\nu$ and drop the identity architecture since, by construction, it cannot encode the nonlinearity in the problem. As before, we fit the model and check its generalization with a set of simulated trajectories.  
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\linewidth]{../figures/moments-deep-sets-nonlinear-residual.pdf}
+\caption{The Euler residuals for $\nu = \mapvar{nu_nonlinear_baseline}$ and $N=\mapvar{N}$ for $\phi(\text{Moments})$ and $\phi(\text{ReLU})$. The dark blue curve shows the average residuals along equilibrium paths for $\mapvar{test_trajectories}$ different trajectories. The shaded areas depict the $2.5$th and $97.5$th percentiles.}	
+\label{fig:moments-deep-sets-nonlinear-residual}
+\end{figure}
+
+However, in this situation, the LQ solution no longer holds, and we do not have an exact solution against which to benchmark our deep learning solution. Instead, we need to jump directly to \cref{fig:moments-deep-sets-nonlinear-residual} to show the average Euler residuals over $\mapvar{test_trajectories}$ simulated trajectories, with the corresponding $95$th percentile bandwidth. The economy uses $\nu = \mapvar{nu_nonlinear_baseline}$ and $N=\mapvar{N}$. The left panel shows the results for $\phi(\text{Moments})$ and the right panel the results for $\phi(\text{ReLU})$. As in \cref{fig:identity-moments-deep-sets-linear-residual}, the mean squared error is fairly low and tight. \cref{tab:nonlinear-performance} in \cref{subsec:tab-nonlinear-prices} provides additional information on this experiment. The main conclusion is that we are indeed finding a highly accurate solution, as in case I, because we are using the same algorithm.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.7\linewidth]{../figures/deep-sets-nonlinear-var-nu.pdf}
+\caption{The optimal policy $u$ along the equilibrium paths for $\nu = [1.0,1.05,1.1,1.5]$ and $N = \mapvar{N}$. Each path shows the optimal policy for a single trajectory.}
+\label{fig:deep-sets-nonlinear-var-nu}
+\end{figure}
+
+We can also investigate the qualitative behavior of the approximate optimal solution, $u(\cdot)$ as $\nu$ approaches one, which coincides with case I where an accurate solution exists. \cref{fig:deep-sets-nonlinear-var-nu} depicts the optimal policy computed with $\phi(\text{ReLU})$ and $N=\mapvar{N}$ along equilibrium paths with aggregate shocks and initial conditions far away from the mean of the ergodic distribution for $\nu = [1.0,1.05,1.1,1.5]$. \cref{fig:deep-sets-nonlinear-var-nu} shows how the optimal policy for a trajectory smoothly approaches the known analytical solution as $\nu$ approaches one, showing the strength of our deep learning approximation.
+	
+\subsection{Generalization: Where is the transversality condition?}\label{sec:transversality}
+
+Intriguingly, to get our approximation, we neither applied a transversality condition nor solved a stationary problem. While we fitted the data to a $T$ where the equilibrium was getting close to some ergodic distribution, we did not use that behavior as a special case. However, in general, we can have many candidate solutions that satisfy the first-order conditions of a dynamic model if we do not constrain the long-run behavior of these solutions in one form or another. In fact, that is what we did to get the LQ solution: the classic control solutions implicitly applied a transversality condition. And, yet, our neural networks consistently picked the solution that generalizes best.\footnote{With shorter simulations, the generalization error for very large $t > T$ worsens because there is an insufficient numbers of data points in a domain of interest; it is not a consequence of whether the system is ergodic.} Why would we so carelessly disregard what has been thought of as an essential boundary condition for solving dynamic models in economics?
+
+This question can be recast in terms of generalization and regularization. First: Why would our algorithm choose the ``right'' solution to the functional equation in the absence of explicit handling of the long-run behavior? Second, if the algorithm chooses a particular solution (rather than a random one), is it the one we want (as measured by its ability to generalize)?
+
+In terms of answering the first question, one might suspect that this is because we are simulating with a great deal of data, but this is not the case. To show this, we can conduct an even more extreme example by fitting a nonlinear network with a parameter vector in $\mathbb{R}^{\mapvar{overfit_parameters}}$ using only 3 random data points in $\mathbb{R}^{\mapvar{overfit_N}}$ for the linear demand function.\footnote{In this case, the solution is consistent with a transversality condition. In other words, imposing a stationary solution boundary condition only needs 2 points to interpolate. } Recall that, in Subsection \ref{caseI}, we showed that the exact solution only has two parameters (i.e., $H_0$ and $H_1$). Therefore, our neural network is heavily over-parameterized ($2 \ll 17700$).
+
+%\begin{figure}[h!]
+%\centering
+%\includegraphics[width=0.9\linewidth]{../figures/overfit_loss.pdf}
+%\caption{ Training and validation loss of the Euler residuals $\varepsilon$. The training procedure utilizes 3 data points in the state space for an economy with $\nu= 1$ and $N = \mapvar{overfit_N}$.}
+%\label{fig:overfit-loss}
+%\end{figure}
+	
+The results are shown in \cref{fig:overfit-loss}. In this experiment, we fit a model with both $\rho$ and $\phi$ represented by a neural network with \mapvar{overfit_rho_layers_text} and \mapvar{overfit_ReLU_layers_text} hidden layers respectively, each with $\mapvar{overfit_rho_dim}$ nodes and $\nu = 1$. The output dimension of $\phi$ is $L =\mapvar{overfit_ReLU_L}$. Each step is one gradient updating in stochastic gradient descent optimization. We draw 3 random data points within $\mathbb{R}^{ \mapvar{overfit_N}}$ from simulated trajectories. The model fits using random ``batches'' of data of size 2, where the randomization in the stochastic gradient descent is an essential part of regularizing the solutions. The right panel of \cref{fig:overfit-loss} shows the convergence of the MSE of the training data, which the optimizer is minimizing. The left panel of \cref{fig:overfit-loss} shows the MSE of the Euler errors on ``validation'' data, i.e., random data used to test the generalization error during training, but which do not enter the optimization objective directly. The training error drops to within the numerical tolerance, as expected. But rather than over-fitting, the validation error also drops to less than $\mapvar{overfit_val_loss}$, which corresponds to a relative policy error of $\mapvar{overfit_val_u_error}$, on the global solution ``out of sample'' with aggregate and idiosyncratic shocks, despite a large number of parameters and minimal data.
+
+While the theoretical understanding of this over-fitting phenomenon is still an active area of research within computer science, it is robustly found in many functional approximation problems. In application after application, using stochastic optimization methods with highly over-parameterized models tends to robustly find solutions that fulfill a minimum norm solution in the space of approximating functions. Recent work on this issue includes \citet{pmlr-v80-arora18b}, \citet{allen2019convergence}, and \citet{nakkiran2019deep}.
+
+For our specific problem, the minimum norm solution seems to coincide with the most generalizable solution and it seems to automatically fulfill the boundary-value conditions (e.g., a transversality condition or a boundary at a terminal period) that we often need to apply directly when approximating with lower-dimensional models.
+
+\section{What about Concentration of Measure?}\label{sec:linear-price}
+
+Section \ref{sec:deep-learning-implementation} made it very clear how symmetry allowed us to come up with a particularly efficient deep learning architecture. It was harder, however, to gauge the role of concentration of measure.
+
+To investigate this point, we return to the case where $\nu= 1$ and propose a modified LQ regulator where we use Monte Carlo to evaluate the required expectations instead of relying on certainty equivalence. By comparing the exact solution that we get from the classic LQ regulator with the approximated solution from our modified LQ regulator, we can assess the importance of concentration of measure and explicitly demonstrate permutation invariance. Finally, our modified LQ regulator is of interest in itself, as it can be helpful for non-Gaussian LQ problems where certainty equivalence does not hold. 
+
+\subsection{The linear-quadratic regulator formulation}\label{sec:linear-price-LQ}
+
+We start by working with a vector (notice that we are not applying \cref{prop:invariant-euler} here, now it is just to simplify notation). As before, without loss of generality, assume that the $x$ in \cref{eq:general-x-lom} is the first element of $X$. Denote the state of all firms and a constant term as $\vec{x} \equiv \begin{bmatrix}
+1 & x & X^\top
+\end{bmatrix}^{\top} \equiv \begin{bmatrix}
+1 & x & x & X_2 & \ldots &  X_N
+\end{bmatrix}^{\top} \in \R^{N+2}$ and the vector of all Gaussian shocks as $\vec{w}\equiv \begin{bmatrix}
+\omega  & W^\top
+\end{bmatrix}^{\top} =  \begin{bmatrix}
+	\omega & w & W_{\text{-}1}^\top
+	\end{bmatrix}^{\top} = \begin{bmatrix}
+\omega & w & W_2 & \ldots & W_N
+\end{bmatrix}^{\top}\sim \mathcal{N}(\mathbf{0}_{N+1},\mathbf{I}_{N+1})$.  The set of idiosyncratic shocks of all of the other firms is denoted $W_{\text{-}1}$ for convenience.
+	
+Next, define $\pi \in \mathcal{S}$ to be a permutation represented by an $(N+2)\times(N+2)$ permutation matrix where the lower-right $N\times N$ block is in $\mathcal{S}_N$, i.e., holding the first and second entries fixed. That is, we are looking at permutations of the form	
+\begin{equation}
+\pi = 
+\left[\begin{array}{c;{5pt/2 pt}c}
+\begin{matrix} 1 & 0 \\ 0  & 1 \end{matrix} & \begin{matrix} \mathbf{0}_N^\top \\ \mathbf{0}_N^\top \end{matrix} \\ \hdashline[5pt/2 pt] \begin{matrix}\mathbf{0}_N & \mathbf{0}_N\\
+\end{matrix} & \pi_N
+\end{array}\right],\label{eq:permutation-LQ}
+\end{equation}
+where $\pi_N \in \mathcal{S}_N$ as defined in \cref{sec:symmetric-group}.
+
+If we define the matrices:
+\begin{align}
+A &\equiv \left[\begin{array}{cc;{5pt/2 pt}c}
+1 & 0 & \mathbf{0}_N^{\top}\\
+0 & 1-\delta & \mathbf{0}_N^{\top}\\		
+\hdashline[5pt/2 pt]
+H_0 \mathbf{1}_N & \mathbf{0}_N & (1-\delta)\mathbf{I}_N + \frac{H_1}{N} \mathbf{1}_N \mathbf{1}_N^{\top}
+\end{array}\right]\label{equ:LQ-A-matrix}\\
+B&\equiv \left[\begin{array}{cc;{5pt/2 pt}c} 0 & 1 & \mathbf{0}_N^{\top} \end{array}\right]^{\top}\label{equ:LQ-B-matrix}\\
+C &\equiv \left[\begin{array}{c;{5pt/2 pt}c}
+0 & \mathbf{0}_N^{\top}\\
+\eta & \begin{matrix}\sigma & \mathbf{0}_{N-1}^{\top}\end{matrix}\\
+\hdashline[5pt/2 pt]
+\eta \mathbf{1}_N & \sigma \mathbf{I}_N
+\end{array}\right]\label{equ:LQ-C-matrix}\\
+R &\equiv \left[\begin{array}{cc;{5pt/2 pt}c}
+0 & \frac{\alpha_0}{2} & \mathbf{0}_N^{\top}\\
+\frac{\alpha_0}{2} & 0 & -\frac{\alpha_1}{2 N}\mathbf{1}_N^{\top}\\
+\hdashline[5pt/2 pt]
+\mathbf{0}_N &  -\frac{\alpha_1}{2 N}\mathbf{1}_N & \mathbf{0}_N \mathbf{0}_N^{\top}
+\end{array}\right]\label{equ:LQ-R-matrix}\\
+Q &\equiv \begin{bmatrix}
+\frac{\gamma}{2}
+\end{bmatrix},\label{equ:LQ-Q-matrix}
+\end{align}
+we can write the problem as an LQ optimal regulator as derived in \cref{sec:lin-quad-proof}.
+
+\subsection{The solution}
+
+We solve our LQ formulation using the following proposition.
+	
+\begin{proposition}[Monte Carlo LQ formulation]\label{prop:lin-quad}
+Taking $H_0$ and $H_1$ as given, each firm solves:
+\begin{align}
+v(\vec{x})= \max_{u}&\left\{-\vec{x}^{\top}R \vec{x} - u^{\top}Q u+\beta \expec{v(\vec{x})}\right\}\label{eq:lin-quad-objective}\\
+\text{s.t.} &   {\vec{x}\,'} = A \vec{x} + B u+ C \vec{w}\label{eq:lin-quad-lom}
+\end{align}
+With solutions characterized by a $P$, $d$, and $F$:
+\begin{align}
+v(\vec{x}) &= - \vec{x}^{\top} P \vec{x} - d\label{eq:v-LQ}\\
+u(\vec{x}) &= - F \vec{x}.\label{eq:u-LQ-app}
+\end{align}
+A symmetric recursive competitive equilibrium is defined as $H_0$ and $H_1$ such that:
+\begin{align}
+F &=-\begin{bmatrix}
+H_0 & 0 & \frac{H_1}{N} & \frac{H_1}{N} & \ldots & \frac{H_1}{N}
+\end{bmatrix} = -\left[\begin{array}{cc;{5pt/2 pt}c} H_0 & 0 & \frac{H_1}{N}\mathbf{1}_N^{\top} \end{array}\right].\label{eq:H-F-equilibrium} 
+\end{align}
+Furthermore, both the control $u(\cdot)$ and value function $v(\cdot)$:
+\begin{enumerate}
+\item are invariant to permutations $\pi \in \mathcal{S}$ as defined by \cref{eq:permutation-LQ};
+\item have expected gradients bounded in $N$, according to \cref{def:Sobolev-function}:
+\begin{align}
+\nabla_{{W_{\text{-}1}}} u(\vec{x}\,') &=  \frac{\sigma H_1}{N}\mathbf{1}_{N-1};\label{eq:prop-bounded-gradients}
+\end{align}
+
+\item have a concentration of measure according to \cref{prop:concentrate-sobolev-func} when calculating with a Monte Carlo draw, $\vec{x}\,'^1$, rather than certainty equivalence, which leads to ---for some $C_v$ independent of $N$:
+\begin{align}
+\prob{\big|u(\vec{x}\,'^1)-\condexpec{u(\vec{x}\,')}{w, \omega,\vec{x}}\big|\geq \epsilon} &\leq \frac{\sigma^2 H_1^2}{\epsilon^2} \frac{1}{N-1}\label{inequ:concentration-measure-lin-policy}\\
+\prob{\big|v(\vec{x}\,'^1)-\condexpec{v(\vec{x}\,')}{w,\omega, \vec{x}}\big|\geq \epsilon} &\leq \frac{\sigma^2 C_v^2}{\epsilon^2} \frac{1}{N-1}; \label{inequ:concentration-measure-quad-policy}
+\end{align}
+\end{enumerate}
+\noindent Also, when we use a Monte Carlo draw instead of certainty equivalence, the Euler residual $\varepsilon(X;u)$ is a Gaussian random variable:
+\begin{align}
+\varepsilon(X;u) \sim \mathcal{N}\Big(0,\frac{N-1}{N^2} \beta^2\sigma^2\big[\alpha_1-\gamma(1-\delta)H_1\big]^2\Big).\label{eq:varepsilon-LQ}
+\end{align}
+Similarly, the error in forecasting the policy in the next period is Gaussian random variable as well:
+\begin{align}
+	u(\vec{x}\,'^1) - \condexpec{u(\vec{x}\,')}{w,\omega, \vec{x}} \sim \mathcal{N}\Big(0,\frac{N-1}{N^2} H_1^2 \sigma^2 \Big).\label{eq:ploicy-forcast-error-LQ}
+\end{align} 
+ 
+\begin{proof}
+See \cref{sec:lin-quad-proof} for the proof using classic LQ-Gaussian control, \cref{sec:lq-permutation-invariance} for permutation invariance, and \cref{sec:concentration-LQ} for concentration of measure
+
+As a demonstration of some of the symmetry properties, we will sketch out the proof for $u(\cdot)$ in \cref{prop:lin-quad}, where we take the functional form of $F$ as given.
+
+\begin{enumerate}
+\item Since $F$ as defined in \cref{eq:H-F-equilibrium} is identical for all but the first two elements, it aligns with the block structure of the permutations. Hence, for any of the $\pi$ in \cref{eq:permutation-LQ}, $\pi F = F$, which ensures that $u(\cdot)$ is symmetric in all changes to the $X$ vector. 
+\item The gradient of an affine function is constant. Hence, for any $\vec{w}$, the policy next period is $u(A \vec{x} + B u + C \vec{w})$. Given the block structure of $F$ and $C$, we differentiate with respect to $W_{\text{-}1}$ in the $\vec{w}$ to find:
+\begin{align}
+\nabla_{{W_{\text{-}1}}} u(A \vec{x} + B u + C \vec{w}) &=  \frac{\sigma H_1}{N}\mathbf{1}_{N-1}.\\
+\intertext{Therefore, the square of the norm of the gradient of the policy can be bounded as:}
+\expec{\|\nabla_{{W_{\text{-}1}}}u(\vec{x}\,')\|^2} &= \left( \sum_{i=2}^N \frac{\sigma H_1}{N} \right)^2 \leq  \frac{\sigma^2 H_1^2}{N-1}.			 
+\end{align}
+\item Since $W_{\text{-}1} \sim \mathcal{N}(\mathbf{0}_{N-1}, \mathbf{I}_{N-1})$, the spectral radius of $\mathbf{I}_{N-1}$ is $1$ and the concentration of measure follows from \cref{eq:prop-bounded-gradients,prop:concentrate-sobolev-func}.
+\end{enumerate}
+\end{proof}
+\end{proposition}	
+
+In terms of solving for an equilibrium in \cref{prop:lin-quad}, we guess an $H_0$ and $H_1$, solve the LQ problem as a matrix Ricatti equation, and then find the fixed point of $H_0$ and $H_1$. In comparison with classic LQ control, we do not use certainty equivalence. The variance of the shock only enters into the $d$ of the solution \cref{eq:v-LQ}. The $d$ can be decomposed into a component related to the $\omega$ aggregate shock and another for the $W$ associated with the finite number of firms. As $N$ goes to infinity, the component of $d$ associated with the idiosyncratic shocks goes to $0$. That is, conditioning on the aggregate shock, the firm can get closer and closer to the deterministic forecast of the distribution of $X'$.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\linewidth]{../figures/concentration_euler_residual_linear.pdf}
+\caption{The concentration of Euler residuals $\varepsilon(X;u)$ and the optimal policy $u(X')$.}
+\label{fig:concentration_euler_residual_linear}
+\end{figure}
+
+To illustrate how quickly and strongly concentration of measure kicks in, we use the same parameter values as in \cref{caseI}. Also, we use a single Monte Carlo draw for the expectation, which is an extreme case but one that can serve as a guide for the quality of the approximation in the many cases of interest where certainty equivalence would not hold.
+
+The left panel of Figure \ref{fig:concentration_euler_residual_linear} plots the standard deviation of the Euler residuals $\varepsilon(X;u)$ induced by the concentration of measure approximation as we increase the number of firms in the industry and we solve the model with modified LQ formulation (this standard deviation comes directly from equation \ref{eq:varepsilon-LQ}). By the time we get to 10,000 firms, the standard deviation of the Euler errors is $2.4\times 10^{-4}$. In the right panel of Figure \ref{fig:concentration_euler_residual_linear}, we draw the standard deviation of the optimal policy $u(X')$ (equal to $H_1\sigma\sqrt{\frac{N-1}{N}}/\sqrt{N}$) for the linear aggregate prices given the same Monte Carlo approximation and find that the standard deviation of the policy error is $2.5 \times 10^{-6}$ for $N=10,000$ and $2.2 \times 10^{-5}$ for our baseline case in many of our previous experiments of $N=128$.
+
+While the LQ algorithm we just outlined works in delivering accurate solutions, as $N$ becomes large, it is too slow, as it requires computations of order \bigO{N^3}. In comparison, we argued before that our neural networks only require computations of order \bigO{1} for a reasonable $N$.
+
+\section{Extensions}\label{sec:extensions}
+
+Did we choose a setup that was particularly amenable to our methods? In this section, we consider how these general techniques can be used for a much larger class of models. Most broadly, our tools are useful for solving any high-dimensional functional equations with some degree of symmetry---and are especially useful when these equations contain high-dimensional expectations. The functional equation could come from static problems, Bellman equations, or Euler equations, and can be solved by various approximation techniques.\footnote{For example, we could use reinforcement learning (also known as approximate dynamic programming or neuro-dynamic programming). See \citet{van2020mdp} for an example applying symmetry to reinforcement learning.}
+
+\subsection{Decreasing returns to scale}\label{sec:curvature-revenue-function}
+
+The constant returns to scale in production and the linear marginal cost of investment in equation \cref{eq:general-bellman-PI} led to the value function in \cref{prop:invariant-euler} being independent from $x$. As the primary interest was in analyzing the high-dimensional state, this was a convenient result.
+
+But what if the value function \cref{eq:general-bellman-vec} has decreasing returns to scale and, thus, the policy becomes a function of $x$? Imagine, for example:
+\begin{equation*}
+\text{profits} = p(X)\frac{x^{1-\mu}}{1-\mu}-\frac{\gamma}{2}u^2.
+\end{equation*}
+This formulation leads to an Euler equation:
+\begin{equation*}
+\gamma u(x,X) = \beta \expec{P(X')x^{-\mu}+\gamma (1-\delta) u(x',X') }.
+\end{equation*}
+
+Given this equation, the solution techniques are identical except that $\expec{\cdot}$ now depends strongly on the idiosyncratic shock associated with state $x$. Extending the previous approach, this expectation can be approximated by a two-dimensional Gaussian quadrature in $w$ and $\omega$, where the expectation with respect to idiosyncratic shocks $W$ is still preformed with a Monte Carlo draw. The only other modification required is to ensure we are using a representation in \cref{prop:rep-permutation-invariant} where $\rho(x, y)$ and $\phi(x)$ where $y \in \mathbb{R}^L$.
+
+%\begin{figure}[h!]
+%\centering
+%\includegraphics[width=0.7\linewidth]{../figures/moments-sets-drs-residual.pdf}
+%\caption{The Euler residuals for $\nu = 1$, $\mu = \mapvar{mu_drs}$, and $N=\mapvar{N}$, over $\mapvar{test_trajectories}$ different trajectories. The shaded areas depict the $2.5$th and $97.5$th percentiles. In this case, the baseline $\phi(\text{Moments})$ is used to approximate the optimal policy.}
+%\label{fig:moments-sets-drs-residual}
+%\end{figure}
+
+%\cref{fig:moments-sets-drs-residual} depicts the average Euler residuals along the equilibrium path (averaged over $\mapvar{test_trajectories}$ trajectories) and the corresponding $95$th percentile bandwidth for an economy with $\nu= 1$, $\mu = \mapvar{mu_drs}$, and $N = \mapvar{N}$. In this experiment baseline $\phi(\text{Moments})$ is used to approximate the optimal policy. The generalization properties are excellent, and the mean squared Euler error is on the order of $1 \times 10^{-6}$ for most of the trajectories and periods.
+
+%In the right panel $\phi$ is approximated by a flexible neural network with \mapvar{ReLU_drs_phi_layers_text} hidden ReLU layers and $\mapvar{ReLU_drs_phi_dim}$ nodes and $\rho$ is approximated by a neural network with \mapvar{ReLU_drs_rho_layers_text} hidden ReLU layers and $\mapvar{ReLU_drs_rho_dim}$ nodes. The output dimension of $\phi$ is $L= \mapvar{ReLU_drs_L}$.
+
+%\cref{fig:deep-sets-drs-large-slices} depicts the average Euler residual off the equilibrium path (averaged over $8$ trajectories), and the corresponding $95$ percentile for an economy with $N=\mapvar{N}$, linear aggregate prices ($\nu = \zeta = 1$) and decreasing return to scale $(\nu = 0.05)$. In the first experiment (left), we look at the generalization performance of our method by looking in the fifth period. We calculate the Euler residuals in an interval around the firm of interest's state holding every other firm fixed , i.e $x \in [x(t=5)-0.5,x(t=5)+0.5]$. In the second experiment (right)  we look at the generalization performance of our method by looking in the $63$rd period (very long-run). We calculate the Euler residuals in an interval around the firm of interest's state, holding every other firm fixed, i.e.$x \in [x(t=63)-0.5,x(t=63)+0.5]$. In both cases $\phi$ is represented with a neural network where $\phi$ has one hidden layer with $256$ nodes and output dimension of $8$ and $\rho$ has one hidden layer with $256$ nodes.   
+
+\subsection{Multiple productivity types}
+
+We consider now the case when firms have $\text{profits}_j = \zeta_j p(X)\frac{x^{1-\mu}}{1-\mu}-\frac{\gamma}{2}u^2$ for some finite set of productivities, e.g., $\zeta_1, \zeta_2$. Then, rather than having permutation invariance based on the entire $X$, we could group them such that the policy becomes $u(x, X^1, X^2)$, where $X_1$ contains all firms with $\zeta_1$, etc.  That is, the elements of $X$ could be symmetric in blocks, and this could be implemented in the network with a representation such as 
+\begin{equation*}
+u(x, X^1, X^2) \approx \rho \left(x, \frac{1}{N_1}\sum_{i=1}^{N_1} \phi_1(X^1_i), \frac{1}{N_2}\sum_{i=1}^{N_2} \phi_2(X^2_i)\right).
+\end{equation*}
+If there were reasons in the problem structure to think that the $\phi_1$ and $\phi_2$ could be proportional to each other, then the representation might even be 
+\begin{equation*}
+u(x, X^1, X^2) \approx \rho \left(x, \frac{1}{N_1}\sum_{i=1}^{N_1} \phi(X^1_i), \frac{1}{N_2}\sum_{i=1}^{N_2} \phi(X^2_i)\right).
+\end{equation*}
+
+\subsection{Complex idiosyncratic states}
+
+Next, we study the case where firms also have a stochastic productivity $y$, such that the firm is identified by the tuple $z \equiv (x, y)$ and the aggregate state is a collection of tuples $Z \equiv \set{(X_i,Y_i)}_{i=1}^N$. We can apply our techniques by considering that it is the symmetry with respect to the $z$ tuple of states, rather than permutation within that tuple, that is required. We can then implement this symmetry in an approximation along the lines of
+\begin{equation*}
+u(x, y, Z) \approx \rho \left(x, y, \frac{1}{N}\sum_{i=1}^{N} \phi(X_i, Y_i) \right), 
+\end{equation*}
+for some $\phi : \mathbb{R}^2 \to \mathbb{R}^L$ and $(x,y)$ the idiosyncratic state of interest.\footnote{In a model with a continuum of agents, this would simply lead to a two-dimensional distributional state, and the modeler would typically write payoffs as expectations using that distribution.} Hence our techniques are easily applied to models with exchangeable ``agents'' containing a finite number of states.
+
+Our approach can even be extended to cases where the collection of underlying states is itself exchangeable. For example, consider if, in addition to its $x$, each firm has up to $M$ customers of varying sizes, $y^j$, where those customers are otherwise exchangeable in the firm's payoffs.\footnote{See \citet{hartford2018deep} for methods to represent permutation equivariance with interactions between sets.} Then we can denote the customers themselves as a set, and use  $z \equiv (x, \set{y^j}_{j = 1}^M)$ as an individual firm's state. If we let $Y_i \equiv \set{y^j_i}_{j = 1}^M$, the aggregate distribution is $Z \equiv \set{X_i, Y_i}$.  
+
+A neural network imposing this symmetry might be
+\begin{equation*}
+u(x, Y, Z) \approx \rho_1 \left(x, \frac{1}{M}\sum_{j=1}^{M} \phi_1(y^j), \frac{1}{N}\sum_{i=1}^{N} \rho_2\left(X_i, \frac{1}{M}\sum_{j=1}^{M} \phi_2(Y^j_i)\right)\right),
+\end{equation*}
+where the training process would fit parameters for $\rho_1, \phi_1, \rho_2,$ and $\phi_2$, and the $\rho_2$ function itself could have a latent dimension greater than one. This last example demonstrates why deep learning, in the sense of many layers of highly parameterized functions, is so important for dealing with symmetry. Without modern (and easily available) machine learning libraries, it would be impractical to fit this nested approximation.
+
+Given the flexibility of working with states that are themselves complicated structures, a natural application of these methods is to solve dynamic models with networks---expanding the computational feasibility of solving extensions of models surveyed in \citet{CarvalhoTahbazSalehi2019}. In particular, it holds the promise of making multi-period dynamic programming in models such as \citet{Oberfield2018} possible by enabling network connections as a persistent state variable and enabling firms to form expectations of the network's evolution.
+
+\subsection{Global solutions with transitions and aggregate shocks}
+
+In many applications, researchers use a continuum of agents. Unfortunately, as soon as we add several aggregate shocks to them, these models are difficult to tackle. Since the distributional state becomes a stochastic partial differential equation (or its discrete-time equivalent), agents need to solve optimal control problems with an infinite-dimensional state, which in turn depends on their decisions. The forward equation for the evolution is difficult enough to simulate, even as an initial value problem, but becomes intractable when it is part of an infinite-dimensional optimal control problem. The continuum approximation is then the source of the numerical intractability rather than the solution to it, hinting that leaving things discrete might help.
+
+As a path forward, our method offers the possibility of simulating economies with tens of thousands of agents even when the model is far away from its ergodic mean or when the economy is hit by a large shock. Then, we can either have a fine granular grouping of agents that matches the microdata (i.e., the same number of agents or groups in the model as in the microdata) or approximate a continuum of agents distribution with histograms as in \citet{Mertens2018}. In comparison, in perturbation solutions such as \citet{KaplanMollViolante2018} in continuous time and \citet{DenHaan2014} in discrete time, one requires appropriate stationarity properties for the perturbation to work accurately.
+
+This insight might be particularly fruitful when solving growth models with heterogeneous agents, which often have steady states and balanced growth paths that are notoriously sensitive to parameters, multiplicity of equilibria, and hysteresis (i.e., they may not even be ergodic). By using a finite number of agents---along the lines of the models discussed in \citet{BueraLucas2018}---models with endogeneity of both innovation and diffusion as in \citet{BenhabibPerlaTonetti2021} without ergodicity could be solved from arbitrary initial conditions.
+
+\section{Conclusion}\label{sec:conclusion}
+
+In this paper, we have shown how to exploit symmetry in dynamic programming problems and the solution of recursive competitive equilibria with a large (but finite) number of heterogeneous agents using deep learning. Symmetry, together with concentration of measure, allowed us to break the curse of dimensionality. The method is easy to implement using standard, open-source software libraries and fast to run on a standard laptop. Our results open the door to many applications of interest, including macro, finance, international finance, industrial organization, international trade, spatial economies, and other fields.
+
+\clearpage
+
+\bibliography{SymmetryDynamicProgramming}
+
+\clearpage
+
+\appendix
+
+\makeatletter
+\def\@seccntformat#1{Appendix\ \csname the#1\endcsname\quad}
+\makeatother
+\makeatletter
+\def\@seccntformat#1{\csname Pref@#1\endcsname \csname the#1\endcsname\quad}
+\def\Pref@section{Appendix~}
+\makeatother
+\numberwithin{equation}{section}
+	
+\section{Mathematics Definitions and Background}\label{sec:math-background}
+
+\begin{definition}[The permutation group and the permutation operator]\label{def:permutation-group}
+Define:
+\begin{itemize}
+\item A permutation group is a group $G$ whose elements are permutations of a given set $\mathcal{I}$ and whose group operation is the composition of permutations in $G$.
+\item The symmetric group of a set $\mathcal{I}$ is the group of all permutations of set $\mathcal{I}$.
+\end{itemize}
+\end{definition}	
+	
+\begin{definition}[Permutation invariance] \label{def:permutation-invariance}
+A function $f:\mathbb{R}^N\rightarrow \mathbb{R}$ is permutation invariant if, for all permutations $\pi \in \mathcal{S}_N$:
+\begin{equation*}
+f(\pi X) = f(X).
+\end{equation*}
+\end{definition}
+	
+\begin{definition}[Permutation equivariance] A function $f:\mathbb{R}^N\rightarrow \mathbb{R}^N$ is permutation equivariant if, for all permutations $\pi \in \mathcal{S}_N$:
+\begin{equation*}
+f(\pi X) = \pi f(X).
+\end{equation*}
+\end{definition}
+
+\begin{proposition}
+Let $\mathcal{X}$ be a compact subset of $\mathbb{R}^{N}$ and $f:\mathcal{X}\subseteq\mathbb{R}^{N} \rightarrow \mathbb{R}$ be a continuous permutation invariant function under $\mathcal{S}_N$, i.e., for all $X \in \mathbb{R}^{N}$ and all $\pi \in \mathcal{S}_N$:
+\begin{equation*}
+f(\pi X) = f(X).
+\end{equation*}
+Then, there exist $L\leq N$, and continuous functions $\varrho: \mathbb{R}^{L}\rightarrow \mathbb{R}$ and $\varphi : \mathbb{R} \rightarrow \mathbb{R}^L$, such that
+\begin{equation*}
+f\left(X\right) = \varrho \left(\frac{1}{N}\sum_{i=1}^N\varphi(X_i)\right),
+\end{equation*}
+where $X_i$ is the $i$th element of $X$.
+\end{proposition}
+\begin{proof}
+See \citet{wagstaff2019limitations} and \citet{zaheer2017deep}.
+\end{proof}
+	
+\section{Concentration of Measure}\label{sec:concentration-measure-defs}
+
+\begin{proposition}[Gaussian Poincar\'e inequality]\label{prop:Gaussian-Poincare-ineq}Suppose $f:\mathbb{R}^N\rightarrow \mathbb{R}$ is a continuously differentiable function and $z\sim \mathcal{N}(\mathbf{0}_N,\mathbf{I}_N)$ is a standard Gaussian random vector. Then: 
+\begin{equation*}
+\mathrm{Var}[f(z)] \leq \expec{\|\nabla f(z)\|^2},
+\end{equation*}
+Moreover, if $z \sim \mathcal{N}(\mathbf{0}_N,\Sigma)$ is a Gaussian random vector with mean zero and covariance matrix $\Sigma$, then:
+\begin{equation*}
+\mathrm{Var}[f(z)] \leq \expec{\nabla f^\top(z) \Sigma  \nabla f(z)}.
+\end{equation*}
+\end{proposition}
+\begin{proof}
+See \citet{boucheron2013concentration}, Theorem 3.20.
+\end{proof}
+
+\section{Proofs}
+	
+\subsection{Proof of \cref{prop:PIDP-optimal-sol-PI}}\label{sec:PIDP-optimal-sol-PI}
+
+\begin{proof}
+Let $\pi \in \mathcal{S}_N$ be a permutation matrix and $Y \equiv \pi X$. The Bellman equation can be written as: 
+\begin{align}
+v(x,Y) &=\max_{u}\left\{r(x,u,Y) + \beta \expec{v(x',Y')}\right\}\label{equ:Bellman-permuted}\\
+\text{s.t. } & x' = g(x,u) + \sigma w + \eta \omega \label{equ:lom-x-permuted}\\
+& Y' =  G(Y)+ \Omega \pi W+\eta \omega \pi \mathbf{1}_N \label{equ:lom-Y-permuted}.
+\end{align}
+Assuming $\frac{\partial g(x,u)}{\partial u} \neq 0$, the Euler equation can be written as
+\begin{align*}
+\frac{r_u\big(x,u(x,Y),Y\big)}{g_u\big(x,u(x,Y)\big)}+\beta \expec{r_x\big(x',u(x',Y'),Y'\big)-r_u\big(x',u(x',Y'),Y'\big)\frac{g_x\big(x',u(x',Y')\big)}{g_u\big(x',u(x',Y')\big)}}=0,
+\end{align*}
+where $r_u \equiv \frac{\partial r}{\partial u}$, $r_x \equiv  \frac{\partial r}{\partial x}$, $g_x \equiv \frac{\partial g}{\partial x}$, and $g_u \equiv \frac{\partial g}{\partial u}$ . Since $r$ is permutation invariant with respect to $X$, we have
+\begin{align*}
+&r_u\big(x,u(x,Y),Y\big) = r_u\big(x,u(x,Y),X\big)\\
+&r_x\big(x,u(x,Y),Y\big) = r_x\big(x,u(x,Y),X\big).
+\end{align*}
+Using the fact that $G(Y) = \pi G(X)$ and $ \Omega\pi = \pi\Omega$ 
+\begin{align}
+\label{equ:Perm-equivariance-lom}	
+Y' = \pi\big(G(X)+\Omega W+\eta \omega \mathbf{1}_N\big) = \pi X'. 
+\end{align}
+Defining $u(x,\pi X) = u\circ \pi (x,X)\equiv u_\pi (x,X)$, the Euler equation becomes:
+\begin{align*}
+\frac{r_u\big(x,u_\pi(x,X),X\big)}{g_u\big(x,u_\pi(x,X)\big)}+\beta \expec{r_x\big(x',u_\pi(x',X'),X'\big)-r_u\big(x',u_\pi(x',X'),X'\big)\frac{g_x\big(x',u_\pi(x',X')\big)}{g_u\big(x',u_\pi(x',X')\big)}}=0,
+\end{align*}
+where: 
+\begin{align}
+& x' = g(x,u) + \sigma w + \eta \omega \label{equ:lom-x-unpermuted}\\
+& X' =  G(X)+ \Omega W+\eta \omega \mathbf{1}_N\label{equ:lom-X-unpermuted}.
+\end{align}
+Since the solution of the Euler equation is unique, then:
+\begin{align*}
+u_\pi(x,X) = u(x,\pi X) = u(x,X).
+\end{align*}
+Given the permutation invariant optimal policy, $u$, and reward function, $r$, the Bellman equation can be written as:
+\begin{align*}
+v(x,Y) = r\big(x,u(x,X),X\big)+ \beta \expec{v(x',Y')},
+\end{align*}	
+where $x'$ and $Y'$ are described by equations \cref{equ:lom-x-permuted} and \cref{equ:lom-Y-permuted}. Using equation \cref{equ:Perm-equivariance-lom} and defining $v(x,\pi X) = v\circ \pi (x,X) \equiv v_\pi(x,X)$, the Bellman equation can be written as:
+\begin{align*}
+v_\pi(x,X) = r\big(x,u(x,X),X\big)+ \beta \expec{v_\pi(x',X')},
+\end{align*}
+where $x'$ and $X'$ are described by equations \cref{equ:lom-x-unpermuted} and \cref{equ:lom-X-unpermuted}. By the contraction mapping theorem, the solution of the Bellman equation is unique. Therefore:
+\begin{align*}
+v_\pi(x,X) = v(x,\pi X) = v(x,X).
+\end{align*}
+\end{proof}
+
+\subsection{Proof of \cref{prop:concentrate-sobolev-func}}\label{sec:concentrate-soblov-func-proof}
+
+\begin{proof}
+By the Chebyshev inequality: 
+\begin{align*}
+\prob{\big|f(z^1)- \expec{f(z)}\big|\geq \epsilon} \leq \frac{\mathrm{Var}\big[f(z)\big]}{\epsilon^2}.
+\end{align*}
+By the Gaussian Poincar\'e inequality (\cref{prop:Gaussian-Poincare-ineq}):
+\begin{align*}
+\mathrm{Var}\big[f(z)\big] \leq \expec{\nabla f(z)^\top\Sigma \nabla f(z)}. 
+\end{align*}
+Therefore:
+\begin{align*}
+\prob{\big|f(z^1)- \expec{f(z)}\big|\geq \epsilon} \leq \frac{1}{\epsilon^2} \expec{\nabla f(z)^\top\Sigma \nabla f(z)}.
+\end{align*}
+Since a covariance matrix is symmetric and positive semi-definite, there exists an orthogonal matrix $U$ (i.e. $U^\top = U^{-1}$) and a diagonal matrix $\Lambda$ such that:
+\begin{align*}
+\Sigma = U\Lambda U^\top,
+\end{align*}
+where $\Lambda$ is the diagonal matrix of the eigenvalues of $\Sigma$. Hence:
+\begin{align*}
+\nabla f(z)^\top\Sigma \nabla f(z) = \sum_{i=1}^{N}\lambda_i \big[U^\top \nabla f(z)\big]_i^2\leq \max_{i=1,..,N} \{\lambda_i\} \|\nabla f(z)\|^2 = \rho(\Sigma) \|\nabla f(z)\|^2,
+\end{align*}
+where $\rho(\Sigma) \equiv \max\limits_{i=1,..,N} \{\lambda_i\}$ is the spectral radius of $\Sigma$. Therefore, 
+\begin{align*}
+\prob{\big|f(z^1)- \expec{f(z)}\big|\geq \epsilon} \leq \frac{\rho(\Sigma) C}{\epsilon^2}\frac{1}{N}.
+\end{align*}
+\end{proof}
+
+\subsection{Proof of \cref{prop:invariant-euler}}\label{sec:proof-permutation-invariant-equilibrium}
+\begin{proof}
+Since the price function $p(X)$ is permutation invariant and $\hat{u}$ is differentiable, the agent problem can be written as:
+\begin{align}
+v(x,X) &=\max_{u}\left\{p(X)\frac{x^{1-\mu}}{1-\mu} -  \frac{\gamma}{2} u^2 + \beta \expec{v(x',X')}\right\}\\
+\text{s.t. } & x' = (1-\delta)x + u + \sigma w + \eta \omega\\
+& X' = \left\{(1-\delta)\hat{x} + \hat{u}(\hat{x},X) + \sigma \hat{w} + \eta \omega \text{ for all } (\hat{x},\hat{w}) \in (X,W)\right\}.\label{equ:law-motion-X-for-proof}
+\end{align}
+The first-order condition is:
+\begin{align}
+\label{equ:foc-proof}
+-\gamma u + \beta \expec{\frac{\partial v(x',X')}{\partial x'}} = 0.
+\end{align}
+\end{proof}
+Given that the other agents' law of motion is independent of the agent of interest's choice, the envelope condition is:
+\begin{align}
+\label{equ:envlope-foc}
+\frac{\partial v(x',X')}{\partial x'} = P(X')(x')^{-\mu}+\gamma(1-\delta) u',
+\end{align} 
+where $u'$ is the optimal policy in the next period. Combining the first-order condition \cref{equ:foc-proof} and the envelope condition \cref{equ:envlope-foc} yields:
+\begin{align}
+-\gamma u(x,X)+ \beta \expec{ P(X')(x')^{-\mu}+\gamma (1-\delta) u(x',X') } = 0.
+\end{align}
+In a symmetric equilibrium, all the agents use the same policy function, i.e., $\hat{u}(.,.) = u(.,.)$, and the laws of motion can be rewritten as: 
+\begin{align}
+x'& = (1-\delta)x + u + \sigma w + \eta \omega\\
+X'& = \left\{(1-\delta)\hat{x} + u(\hat{x},X) + \sigma \hat{w} + \eta \omega \text{ for all } (\hat{x},\hat{w}) \in (X,W)\right\}. \label{equ:law-motion-symmetric-X-for-proof}
+\end{align}
+
+For the case of $\mu = 0$, the Euler equation becomes:
+\begin{align}
+-\gamma u(x,X)+ \beta \expec{ P(X')+\gamma (1-\delta) u(x',X') } = 0.
+\end{align}
+In this case, the $x$ drops out of the Euler equation. Hence, $u$ does not depend on $x$, and the Euler equation can be rewritten as:
+\begin{align}
+- \gamma u(X)+ \beta \expec{ P(X')+\gamma (1-\delta) u(X') } = 0,
+\end{align} 
+and the law of motion for $X$ is described by equation \cref{equ:law-motion-symmetric-X-for-proof}.
+
+\section{LQ Formulations}
+	
+This section solves the special case of the LQ model.  The purpose is to demonstrate the symmetry and concentration of measure when we know the closed-form solution of the problem.
+
+\subsection{Proof of \cref{prop:lin-quad}: Linear-quadratic Gaussian control}\label{sec:lin-quad-proof}
+
+\noindent With an LQ Gaussian model, we know that the policy will be affine. Therefore, $\hat{u}$ for other firms can be written as 
+\begin{align}
+\hat{u}(X_i,X) &= H_0 +  H_2 X_i + \frac{H_1}{N}\sum_{i=1}^N X_i \quad i = 1,...,N,
+\end{align}
+for some undetermined $H_0$, $H_1$, and $H_2$. As shown in \cref{prop:invariant-euler}, in a permutation invariant symmetric equilibrium, $u(\hat{x},X)$ does not depend on $\hat{x}$ and, hence, $H_2 = 0$. The symmetric constants, which we arbitrarily define as $\frac{H_1}{N}$ for all of the $X$ vector, are the only ones that can fulfill permutation invariance with respect to the $\pi$ permutations defined in equation \cref{eq:permutation-LQ}. The law of motion for $\vec{x}$ is then:
+\begin{align}
+\vec{x}\,' &= A \vec{x} + B u + C \vec{w}
+\end{align}
+where $A$, $B$, and $C$ are defined in equations \cref{equ:LQ-A-matrix}, \cref{equ:LQ-B-matrix}, and \cref{equ:LQ-C-matrix}. The reward and policy $u$ of the firm of interest at state $\vec{x}$ take the form:
+\begin{align}
+-\vec{x}^\top R\vec{x}- u^\top Q u,
+\end{align}
+where $R$ and $Q$ are defined in equations \cref{equ:LQ-R-matrix} and \cref{equ:LQ-Q-matrix}.
+
+For a given pair of $(H_0,H_1)$, the solution of this LQ problem has the form:
+\begin{align}
+& \vec{v}(\vec{x}) = - \vec{x}^\top P \vec{x}-d\\
+& \vec{u}(\vec{x}) = -F\vec{x},
+\end{align}
+where $P$ solves the following  discounted algebraic matrix Riccati equation:
+\begin{align}
+\label{equ:DARE}
+P = R + \beta A^\top P A - \beta^2 A^\top P B\big(Q+\beta B^\top P B\big)^{-1} B^\top P A,
+\end{align}
+$d$ can be found via:
+\begin{align}
+\label{equ:d}
+d = \frac{\beta}{1-\beta} \text{trace}\big(PCC^\top\big),
+\end{align}
+and $F$ satisfies:
+\begin{align}
+\label{equ:F}
+F = \beta \big(Q+\beta B^\top P B\big)^{-1}B^\top P A.
+\end{align}
+\citet[ch. 5]{LjungqvistSargent2018} derive equations \cref{equ:DARE}, \cref{equ:d}, and \cref{equ:F}.
+
+\subsection{Proof of \cref{prop:lin-quad}: Permutation invariance}\label{sec:lq-permutation-invariance}
+
+Now, we illustrate the permutation invariance of the optimal policy and value function of the LQ model described in \cref{prop:lin-quad}. Define $\vec{y} \equiv \pi \vec{x}$. The value function associated with $\vec{y}$ in \cref{eq:v-LQ} can be written as:
+\begin{equation*}
+v(\vec{y}) = -\vec{y}^\top P \vec{y}-d = - \vec{x}^\top\big( \pi^\top P \pi\big) \vec{x} -d,
+\end{equation*}
+where $P$ solves the discounted algebraic Riccati equation: 
+\begin{align}
+\label{eq:Dare-proof-perm-inv-equiv-LQ}
+P = R + \beta A^\top P A - \beta^2 A^\top P B \big(Q+\beta B^\top P B\big)^{-1} B^\top P A.
+\end{align}
+Sandwiching both sides of Equation \cref{eq:Dare-proof-perm-inv-equiv-LQ} by $\pi^\top$ and $\pi$ and using the fact that $R$ is permutation invariant (i.e., $\pi^\top R \pi = R$) yields:
+\begin{align*}
+\pi^\top P \pi = R +\beta \pi^\top A^\top P A \pi- \beta^2 \pi^\top A^\top P B \big(Q+\beta B^\top P B\big)^{-1} B^\top P A\pi.
+\end{align*}
+Since the deterministic part of the laws of motion $A$ is permutation equivariant (i.e., $A\pi = \pi A$) and the vector $B$ remains unchanged under a permutation (i.e., $\pi B = B$), the above equation can be rewritten as:
+\begin{align}
+\pi^\top P \pi = R +\beta A^\top \big(\pi^\top P \pi\big) A - \beta^2  A^\top \big(\pi^\top P \pi \big) B \big[Q+\beta B^\top (\pi^\top P\pi) B\big]^{-1} B^\top (\pi^\top P\pi) A.
+\end{align}
+
+Notice that $\pi^\top P \pi$ solves the same discounted algebraic Riccati equation \cref{eq:Dare-proof-perm-inv-equiv-LQ} as $P$. Since the solution of equation \cref{eq:Dare-proof-perm-inv-equiv-LQ} is unique:
+\begin{align*}
+\pi^\top P \pi = P.
+\end{align*} 
+The constant term $d$ can be written as
+\begin{align}
+d & = \beta (1-\beta)^{-1}\text{trace}(P\pi C C^\top\pi^\top) \nonumber \\
+   & = \beta (1-\beta)^{-1}\text{trace}(\pi^\top P\pi C C^\top) \nonumber \\
+   & = \beta (1-\beta)^{-1}\text{trace}( P C C^\top).
+\end{align} 
+As shown above, $d$ remains unchanged under permutation and, therefore:
+\begin{align*}
+v(\vec{y}) = v(\pi\vec{x}) = v(\vec{x}). 
+\end{align*}
+The optimal policy $\vec{u}(\vec{y})$ can be written as
+\begin{align*}
+u(\vec{y}) = -\beta \big(Q+\beta B^\top P B\big)^{-1} B^\top P A \vec{y} = - \beta \big(Q+\beta B^\top P B\big)^{-1} B^\top (\pi^\top P\pi) A \vec{x}.
+\end{align*}
+Since $(\pi^\top P\pi) = P$, then:
+\begin{align*}
+u(\vec{y}) = u(\pi\vec{x}) = u(\vec{x}).
+\end{align*}
+
+\paragraph{Structure of the $P$ Quadratic Form.} When solving for \cref{prop:lin-quad}, you can further find that the  permutation invariant matrix $P$ is of the form
+\begin{align}
+P &\equiv \left[\begin{array}{cc;{5pt/2 pt}c}
+p_1 & p_2 & \frac{p_3}{N}\mathbf{1}_N^{\top}\\
+p_2 & 0 & \frac{p_4}{N}\mathbf{1}_N^{\top}\\
+\hdashline[5pt/2 pt]
+\frac{p_3}{N} \mathbf{1}_N &  \frac{p_4}{N}\mathbf{1}_N & \frac{p_5}{N^2} \mathbf{1}_N \mathbf{1}_N^{\top}
+\end{array}\right]\label{eq:P}
+\end{align}
+for some $p_1, \ldots p_5$. The lower block of this matrix is $\frac{p_5}{N^2}\mathbf{1}_N\mathbf{1}_N^{\top}$ (the $N \times N$ matrix of $1$s is then the outer-product $\mathbf{1}_N\mathbf{1}_N^{\top}$.) This shows the symmetry with respect to the $i= 2, \ldots N$ states in $\vec{x}$ due to the block structure similar to that in equation \cref{eq:permutation-LQ}, and the magnitude of their interaction (i.e., the lower block  decreases at rate $N^2$ rather than $N$).
+
+\subsection{Proof of \cref{prop:lin-quad}: Concentration of measure}\label{sec:concentration-LQ} 
+
+The optimal policy for $\vec{x}\,'$ can be written as:
+\begin{align*}
+u(\vec{x}\,') = -F\vec{x}\,' = - F (A\vec{x}+Bu+C \vec{w}).
+\end{align*}
+The optimal policy defined in \cref{prop:lin-quad}  for a given $H_0$ and $H_1$ is $
+u(\vec{x})  = H_0 +\frac{H_1}{N} \sum_{i=1}^N X_i =  H_0 + H_1 \expec{x}$, and, hence, a bounded function in $N$ according to \cref{def:bounded-func-N}. For any finite $H_1$ (including the equilibrium value), the gradient of $u(\vec{x}\,')$ with respect to the idiosyncratic shocks of all other firms $W_{\text{-}1} \equiv \begin{bmatrix}W_2 & \ldots & W_N\end{bmatrix}$ becomes:
+\begin{align*}
+\nabla_{{W_{\text{-}1}}} u(\vec{x}\,') = \frac{\sigma H_1}{N}\mathbf{1}_{N-1}.
+\end{align*}
+Therefore, the square of the norm of the gradient of the policy can be bounded by:
+\begin{align*}
+\expec{\|\nabla_{{W_{\text{-}1}}}u(\vec{x}\,')\|^2} =  \sigma^2 H_1^2 \big(\frac{N-1}{N^2}\big) \leq \frac{\sigma^2 H_1^2}{N-1}.
+\end{align*}
+Using \cref{prop:concentrate-sobolev-func} and conditioning on $w$, $\omega$, and $\vec{x}$:
+\begin{align}
+\label{inequ:concentration-measure-lin-policy-app}
+\prob{\big|u(\vec{x}\,'^1)-\condexpec{u(\vec{x}\,')}{w,\omega,\vec{x}}\big|\geq \epsilon} \leq \frac{\sigma^2 H_1^2}{\epsilon^2} \frac{1}{N-1}.	
+\end{align}
+%For the $\mu = 0$ case, the optimal policy $u(\cdot)$ does not depend on $x$ and, thus, conditioning on the idiosyncratic shock of the firm of interest is not required.
+
+The value function can be written as: 
+\begin{align}
+v(\vec{x}\,') = - \vec{x}\,'^\top P \vec{x}\,' - d.
+\end{align}
+ Defining $X'_{\text{-}1} \equiv \begin{bmatrix}X_2' & \ldots & X_N' \end{bmatrix}^{\top}$ and given the symmetry in equations \cref{eq:P,eq:H-F-equilibrium} by using the chain rule and additive structure of the idiosyncratic shocks, the gradient of the value function is:
+\begin{align*}
+\nabla_{{W_{\text{-}1}}}v(\vec{x}\,') = - 2 \sigma\Big[ \frac{p_3+p_4 x'}{N} + \frac{p_5 x'}{N^2}\Big] \mathbf{1}_{N-1}- \frac{2 p_5 \sigma}{N^2} \mathbf{1}_{N-1}\mathbf{1}_{N-1}^{\top} X'_{\text{-}1},
+\end{align*}
+and then:
+\begin{align*}
+\|\nabla_{{W_{\text{-}1}}}v(\vec{x}\,')\|^2 = & \Big[2\sigma \big(p_3+p_4x'+\frac{p_5x'}{N}\big)\Big]^2  \frac{N-1}{N^2} + 8 \sigma^2 p_5 \big(p_3+p_4x' +\frac{p_5 x'}{N}\big) \mathbf{1}_{N-1}^\top X'_{\text{-}1} \frac{N-1}{N^3}+\\
+& (2\sigma p_5)^2 {X'_{\text{-}1}}^\top \mathbf{1}_{N-1}\mathbf{1}_{N-1}^\top X'_{\text{-}1}\frac{N-1}{N^4}
+\end{align*}
+Since conditional on $(w,\omega, \vec{x})$, $x'$ is not a random variable and $X'_{\text{-}1}$ is a normal random vector with conditional mean $\condexpec{X'_{\text{-}1}}{w,\omega,\vec{x}} = X_{\text{-}1} + \big(u(X)+\eta \omega \big)\mathbf{1}_{N-1}$  we have:
+\begin{align*}
+\condexpec{\|\nabla_{{W_{\text{-}1}}}v(\vec{x}\,')\|^2}{w,\omega,\vec{x}} =&  \frac{(N-1)^2}{N^2} \Big[ 2\sigma\big(p_3+ p_4x'+\frac{p_5x'}{N} \big) \Big]^2 \frac{1}{N-1} + \\
+  & 8 \frac{(N-1)^3}{N^3}\sigma^2 p_5 \Big[p_3+ p_4 x' + \frac{p_5 x'}{N}\Big] \Big(\frac{\mathbf{1}_{N-1}^\top X_{\text{-}1}}{N-1}+ u(X)+\eta \omega\Big) \frac{1}{N-1} + \\
+  & \frac{N-1}{N^4} (2\sigma p_5)^2 \condexpec{{X'_{\text{-}1}}^\top \mathbf{1}_{N-1}\mathbf{1}_{N-1}^\top X'_{\text{-}1}}{w,\omega,\vec{x}}
+\end{align*}
+	 
+ Considering $X'_{\text{-}1}$ is a normal random vector with conditional covariance $\condcov{X'_{\text{-}1}}{~w,\omega, \vec{x}} = \sigma^2 \mathbf{I}_{N-1}$, we have:\footnote{If $\vec{z}$ is a random vector with mean $\vec{m}$ and covariance matrix $\Sigma$, then, for any matrix $\Lambda$, $\expec{\vec{z}^\top \Lambda \vec{z}}=\text{trace}(\Lambda\Sigma)+\vec{m}^\top \Lambda \vec{m}$.}
+\begin{align*}
+ \frac{N-1}{N^4} \condexpec{{X'_{\text{-}1}}^\top \mathbf{1}_{N-1}\mathbf{1}_{N-1}^\top X'_{\text{-}1}}{w,\omega,\vec{x}} =  \Big[ \frac{(N-1)^3}{N^4}\sigma^2 + \frac{(N-1)^4}{N^4}\big(\frac{\mathbf{1}_{N-1}^\top X_{\text{-}1}}{N-1} + u(X)+ \eta \omega \big)^2 \Big]\frac{1}{N-1}
+\end{align*}
+
+Since $\frac{\mathbf{1}_{N-1}^\top X_{\text{-}1}}{N-1}$ and $u(X)$ are bounded functions in $N$ (\cref{def:bounded-func-N}), there exists $K_1$ such that:
+\begin{align*}
+\big|\frac{\mathbf{1}_{N-1}^\top X_{\text{-}1}}{N-1}+u(X)+\eta \omega\big| \leq K_1.
+\end{align*}
+Note that $|p_5|$  and $\big|p_3+p_4x' + \frac{p_5 x'}{N}\big|$ are both bounded, and $\frac{(N-1)^3}{N^4} \sigma^2 \leq \sigma^2 \frac{(N-1)^4}{N^4}$. Therefore, by the Cauchy-Schwarz inequality, there exists a positive $C_v$ such that 
+\begin{equation*}
+\condexpec{\|\nabla_{{W_{\text{-}1}}}v(\vec{x}\,')\|^2}{w,\omega, \vec{x}} \leq \frac{\sigma^2 C_v^2}{N-1}.
+\end{equation*}
+Hence, by \cref{prop:concentrate-sobolev-func}:
+\begin{align}
+\label{inequ:concentration-measure-quad-policy-app}
+\prob{\big|v(\vec{x}\,'^1)-\condexpec{v(\vec{x}\,')}{w,\omega, \vec{x}}\big|\geq \epsilon} \leq \frac{\sigma^2 C_v^2}{\epsilon^2} \frac{1}{N-1}.
+\end{align}
+	 
+The inequalities in \cref{inequ:concentration-measure-lin-policy-app} and \cref{inequ:concentration-measure-quad-policy-app} show that even with a single draw, we can calculate the expectation as $N$ increases. A high-dimensional state space is a help rather than a hindrance when calculating expectations (as long as there is sufficient independence in the states) because of the concentration of measure phenomenon. Inequality \cref{inequ:concentration-measure-lin-policy} shows that, with a single draw of $W_{\text{-}1}$, we know the precise distribution of the deviation from the expectation, and with a large enough $N$, it converges to $0$. We could take multiple draws if required. But since Monte Carlo integration converges very slowly in general, the gains in extra accuracy will be minor even if we increase the number of draws substantially.
+	
+The Euler residuals corresponding to a Monte Carlo draw of $W$ is defined as:
+\begin{align*}
+\varepsilon(X,u) = &\gamma u(X) - \beta \expec[w,\omega]{P(X')+\gamma (1-\delta) u(X')} 
+\end{align*}
+where $\expec[w,\omega]{\cdot}$ corresponds to expectation over $w$ and $\omega$. Substituting for a linear price and linear policy $u(X') = H_0 + \frac{H_1}{N} X_1 + \frac{H_1}{N}\sum_{i=2}^{N} X'_i$ 
+\begin{align*}
+	\varepsilon(X,u) = &\gamma u(X) - \beta \Big[\alpha_0-\frac{\alpha_1}{N} \sum_{i=1}^N\big(X_i+u(X)\big) \Big] - \beta \gamma (1-\delta) \Big[H_0 + \frac{H_1}{N} \sum_{i=1}^N \big(X_i+u(X)\big)\Big] + \\
+	& \beta \sigma \Big[\alpha_1-\gamma (1-\delta) H_1\Big] \frac{1}{N} \sum_{i=2}^N W_i
+\end{align*}
+From the Euler equation \cref{eq:prop-x-euler-mu-zero}, the first three terms sum up to zero, therefore:
+\begin{equation*}
+\varepsilon(X,u) = \beta \sigma \Big[\alpha_1-\gamma(1-\delta)H_1\Big]\frac{1}{N}\sum_{i=2}^{N}W_i.
+\end{equation*}
+Utilizing the fact that $W_i\sim \mathcal{N}(0,1)$, the Euler residual is a Gaussian random variable 
+\begin{equation*}
+\varepsilon(X,u) \sim \mathcal{N}\Big(0,\frac{N-1}{N^2} \beta^2\sigma^2\big[\alpha_1-\gamma(1-\delta)H_1\big]^2\Big).
+\end{equation*}
+For a linear policy, the error in forecasting the policy in the next period is:
+\begin{equation*}
+		u(\vec{x}\,'^1) - \condexpec{u(\vec{x}\,')}{w,\omega, \vec{x}}  = \frac{H_1 \sigma}{N} \sum_{i=2}^N W_i,
+\end{equation*}
+therefore, it is a Gaussian random variable 
+\begin{equation*}
+	u(\vec{x}\,'^1) - \condexpec{u(\vec{x}\,')}{w,\omega, \vec{x}}   \sim \mathcal{N}\Big(0,\frac{N-1}{N^2} H_1^2 \sigma^2 \Big).
+\end{equation*}
+\subsection{Representation of the $v$ function}\label{sec:v-LQ-representation}
+
+If it is known that the LQ problem satisfies certainty equivalence and the value function is quadratic and permutation invariant, $v$ can be represented as: 
+\begin{align*}
+v(x, X) &= -\bigg(p_1+d +2 p_2 x +2 p_3\frac{\sum_{i=1}^{N}X_i}{N}+2 p_4 x \frac{\sum_{i=1}^{N}X_i}{N} +p_5\big(\frac{\sum_{i=1}^{N}X_i}{N}\big)^2\bigg) \\
+&= \rho_v \big(x, \frac{1}{N}\sum_{i=1}^N\phi_v(X_i)\big)
+\end{align*}
+In other words, $\phi_v: \mathbb{R}\rightarrow \mathbb{R}^1$ (i.e., $L=1$) is the identity function $\phi_v(X) = \begin{bmatrix}X\end{bmatrix}$, and $\rho_v : \mathbb{R} \times \mathbb{R}^1\rightarrow \mathbb{R}$ such that:
+\begin{align*}
+\rho_v(x,y) = - (p_1+d +2 p_2 x + 2 p_3 y + 2 p_4 x y +p_5 y^2).
+\end{align*}
+	
+\section{Additional Numerical Results}
+\subsection{More network variations}
+\label{subsec:tab-longer-linear-prices}	
+\renewcommand{\arraystretch}{1.2}
+
+%\cref{tab:more-linear-performance} reports a more complete list of experiments, including those of \cref{tab:linear-performance}.
+
+%\begin{table}[h!]
+%\caption{Linear Model Performance in Additional Experiments}\vspace{-0.1in}
+%\begin{center}
+%\resizebox{\textwidth}{!}{\begin{tabular}{c}
+%\input{../figures/full_linear_performance_table.tex}
+%\end{tabular}}
+%\end{center}
+%\label{tab:more-linear-performance}
+%\end{table}
+%\renewcommand{\arraystretch}{1.0}
+
+\subsection{Nonlinear demand function}
+\label{subsec:tab-nonlinear-prices}
+
+The results in \cref{tab:nonlinear-performance} confirm the conventional wisdom in the deep learning literature. First, {\it Very Shallow} in $\phi(\text{ReLU})$, and {\it Very Shallow} and {\it Shallow} in $\phi(\text{Moments})$ highlight the role of depth and generalizability. In these experiments, the MSE of the Euler residuals on both the training and the validation data is very low. However, as seen in Test MSE ($\varepsilon$), the approximated policy is incapable of generalization. Second, for cases where there is nonlinearity in the function of interest, depth plays a more important role than pure capacity (number of parameters). For instance, in $\phi(\text{Moments})$, {\it Thin} has way fewer parameters than {\it Shallow}, but it has more depth. {\it Thin} has an extraordinarily higher generalization power than {\it Shallow}.     
+
+%\renewcommand{\arraystretch}{1.2}
+
+%\begin{table}[h!]
+%\caption{Nonlinear Model Performance}\vspace{-0.1in}
+%\begin{center}
+%\resizebox{\textwidth}{!}{\begin{tabular}{c}
+%\input{../figures/full_nonlinear_performance_table.tex}
+%\end{tabular}}
+%\end{center}
+%\label{tab:nonlinear-performance}
+%\end{table}
+%\renewcommand{\arraystretch}{1.0}
+
+\end{document}
