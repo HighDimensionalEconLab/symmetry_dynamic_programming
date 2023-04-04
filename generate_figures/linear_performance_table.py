@@ -18,15 +18,14 @@ sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 networks = {
 
-'Identity': [["Baseline", "baseline_identity"], ["Thin (64 nodes)", "thin_64_identity"]],
-'Moments': [["Baseline", "baseline_deep_moments"],
-               ["Moments (1,2)","L_2_deep_moments"], ["Thin (64 nodes)", "thin_64_deep_moments"],
+'Identity': [["Baseline", "baseline_identity"], []],
+'Moments': [["Baseline: Moments (1,2,3,4)", "baseline_deep_moments"],
+               ["Moments (1,2)","L_2_deep_moments"], 
                 ["Very Shallow (1 layer)", "very_shallow_1_layer_deep_moments"]], 
-'Deep Sets': [["Baseline", "baseline_deep_sets"],
+'Deep Sets': [["Baseline: L= 4", "baseline_deep_sets"],
             ["L = 2", "L_8_deep_sets"],
             ["L = 16", "L_16_deep_sets"], 
             [r"$\textup{Deep}~(\phi:\textup{2 layers},  \rho:\textup{4 layers})$",  "deep_2_4_deep_sets"],
-            [r"$\textup{Thin}~(\phi,\rho:\textup{64 nodes})$", "thin_64_deep_sets"],
             [r"$\textup{Shallow}~(\phi:\textup{1 layer},  \rho:\textup{2 layers})$", "shallow_1_2_deep_sets"], 
             ]
 }
@@ -41,8 +40,8 @@ def summary_run(group, description, tag):
         "train_time",
         "trainable_parameters",
         "train_loss",
-        "test_loss",
         "val_loss",
+        "test_loss",
         "test_u_rel_error"
     ]
     overall_tag = api.runs(sym_runs, filters={"tags": tag})
@@ -82,8 +81,8 @@ def linear_performance_table(df):
                 "train_time": r"\shortstack{Time \\ (s)}",
                 "trainable_parameters": r"\shortstack{Params\\ (K)}",
                 "train_loss": r"\shortstack{Train MSE \\ ($\varepsilon$)}",
-                "test_loss": r"\shortstack{Test MSE \\ ($\varepsilon$)}",
                 "val_loss": r"\shortstack{Val MSE \\ ($\varepsilon$)}",
+                "test_loss": r"\shortstack{Test MSE \\ ($\varepsilon$)}",
                 "test_u_rel_error": r"\shortstack{Policy Error\\ $\left(\frac{|u - u_{\text{ref}}|}{u_{\text{ref}}}\right)$}",
             }
         )
