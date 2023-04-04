@@ -1,9 +1,6 @@
-#import symmetry_dp
-#from symmetry_dp import experiment_row, reorganize_performance_dataframe
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-#import joypy
 from matplotlib import cm
 import yaml
 import pytorch_lightning as pl
@@ -11,7 +8,6 @@ import os
 import wandb
 
 output_dir = "./figures"
-plot_name = "linear_performance_table"
 
 api = wandb.Api()
 sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
