@@ -516,17 +516,17 @@ While these figures show that the solution is very accurate, we need to gauge wh
 	
 Finally, \cref{tab:linear-performance} shows the results for different variations in the approximations, $\phi(\text{Identity})$, $\phi(\text{ReLU})$, and $\phi(\text{Moments})$.  The columns are as follows: Time is measured in seconds. Params represents the number of parameters $(\theta)$ in functional approximation, in thousands. Train MSE reports the mean squared error of the Euler residuals for the simulated trajectories used for training. Test MSE documents the mean squared error of the Euler residuals on simulated data after the training is complete, and which internally uses the approximation itself during the simulation. Val MSE displays the mean squared error on the validation data, that is, trajectories used to check the quality of the generalization during the training process, but where the data are not used to fit the model directly. Policy error $(\big|u-u_{\text{ref}}\big|)$ is the mean absolute value of the approximate solution and the accurate solution $(u_{\text{ref}})$ on the test data. Policy error $\left(\frac{|u-u_{\text{ref}}|}{u_{\text{ref}}}\right)$ is the mean absolute value of the relative error of the approximate solution and the accurate solution $(u_{\text{ref}})$ on the test data. The results in \cref{tab:linear-performance} are the median among $\mapvar{trials}$ trials with different seeds. See \cref{tab:more-linear-performance} in \cref{subsec:tab-longer-linear-prices} for additional experiments. 
 
-%\renewcommand{\arraystretch}{1.2}
-%\begin{table}[h!]
-%\caption{Performance of different networks in solving case I: $\nu=1$}\vspace{-0.1in}
-%\begin{center}
-%\resizebox{\textwidth}{!}{\begin{tabular}{c}
-%\input{../figures/linear_performance_table.tex}
-%\end{tabular}}
-%\end{center}
-% \label{tab:linear-performance}
-%\end{table}
-%\renewcommand{\arraystretch}{1.0}
+\renewcommand{\arraystretch}{1.2}
+\begin{table}[h!]
+\caption{Performance of different networks in solving case I: $\nu=1$}\vspace{-0.1in}
+\begin{center}
+\resizebox{\textwidth}{!}{\begin{tabular}{c}
+\input{../figures/linear_performance_table.tex}
+\end{tabular}}
+\end{center}
+ \label{tab:linear-performance}
+\end{table}
+\renewcommand{\arraystretch}{1.0}
 
 The first lesson from \cref{tab:linear-performance} is that the results are mainly robust to variations in the networks' architecture. However, for small networks, as in the case of the {\it Very Shallow} example in $\phi(\text{Moments})$, sometimes the optimization procedure finds a local minimum that is not close to the global minimum solution. Not coincidentally, this is the model with the fewest number of parameters, which should give us pause since it is still orders of magnitude above the dimensionality of $2$ parameters required for the analytical solution. Also, the case $\phi(\text{ReLU})$, with  Deep $(\phi : 4$ layers, $\rho: 8$ layers) is unsatisfactory. This result highlights the importance of exploring different networks' architectures, something easily done with modern machine learning libraries.
 

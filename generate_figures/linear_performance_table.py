@@ -2,6 +2,7 @@
 #from symmetry_dp import experiment_row, reorganize_performance_dataframe
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 #import joypy
 from matplotlib import cm
 import yaml
@@ -23,16 +24,15 @@ networks = {
 
 'Identity': [["Baseline", "baseline_identity"], ["Thin (64 nodes)", "thin_64_identity"]],
 'Moments': [["Baseline", "baseline_deep_moments"],
-               ["Moments (1,2)","L_2_deep_moments"],
-                ["Very Shallow (1 layer)", "very_shallow_1_layer_deep_moments"], 
-                ["Thin (64 nodes)", "thin_64_deep_moments"]], 
+               ["Moments (1,2)","L_2_deep_moments"], ["Thin (64 nodes)", "thin_64_deep_moments"],
+                ["Very Shallow (1 layer)", "very_shallow_1_layer_deep_moments"]], 
 'Deep Sets': [["Baseline", "baseline_deep_sets"],
             ["L = 2", "L_8_deep_sets"],
             ["L = 16", "L_16_deep_sets"], 
-            ["Shallow", "shallow_1_2_deep_sets"],
-            ["Deep 4/8", "deep_4_8_deep_sets"], 
-            ["Deep 2/4",  "deep_2_4_deep_sets"],
-            ["Thin (64 nodes)", "thin_64_deep_sets"]]
+            [r"$\textup{Deep}~(\phi:\textup{2 layers},  \rho:\textup{4 layers})$",  "deep_2_4_deep_sets"],
+            [r"$\textup{Thin}~(\phi,\rho:\textup{64 nodes})$", "thin_64_deep_sets"],
+            [r"$\textup{Shallow}~(\phi:\textup{1 layer},  \rho:\textup{2 layers})$", "shallow_1_2_deep_sets"], 
+            ]
 }
 
 
@@ -66,12 +66,11 @@ def summary_run(group, description, tag):
             else: 
                 df= pd.concat([df,pd.DataFrame(x, index=cols)], axis=1)
     df = df.T.reset_index(drop=True)
-    df["trainable_parameters"] = df["trainable_parameters"] / 1000
     df["test_u_rel_error"] = df["test_u_rel_error"] * 100
-    df.insert(0, "success", df[df['retcode']>=0].count()['retcode']/100 )
+    df.insert(0, "success", df[df['retcode']>=0].count()['retcode'] )
     df_retcode_0 = df[df["retcode"] >= 0]
     df_retcode_0 = df_retcode_0.drop("retcode", axis =1)
-
+    df_retcode_0["trainable_parameters"] = df["trainable_parameters"] / 1000
     
 
     ##getting the median of the dataframe and creating a new dataframe with it to return median
@@ -97,15 +96,15 @@ def linear_performance_table(df):
         multicolumn=True,
         multirow=True,
         formatters=[
-            "{:.2f}\%".format,
+            "{:0.0f}\%".format,
             "{:0.0f}".format,
             "{:.1f}".format,
             "{:.1e}".format,
             "{:.1e}".format,
             "{:.1e}".format,
-            "{:.1e}".format
+            "{:.2f}\%".format
         ],
-        longtable=True,
+        longtable=False,
         sparsify=True,
         escape=False,
     )
@@ -129,10 +128,12 @@ for group in networks.keys():
             else:
                 summary_run_total = pd.concat([summary_run_total,summary_run_one])
 
+summary_run_total['success'] = summary_run_total['success'].fillna(0)
+#summary_run_total = summary_run_total.replace(np.nan, "--")
+
 summary_run_total = summary_run_total.reset_index()
 summary_run_total.rename(columns={'index': 'Group'}, inplace = True)
 summary_run_total= summary_run_total.set_index(['Group', 'Description'])
-summary_run_total
 
 with open(output_dir + "/linear_performance_table.tex", "w") as file:
     file.write(linear_performance_table(summary_run_total))
