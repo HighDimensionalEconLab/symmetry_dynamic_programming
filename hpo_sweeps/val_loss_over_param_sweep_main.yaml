@@ -16,7 +16,7 @@ parameters:
   trainer.logger.offline:
     value: false # log online for W&B optimization
   trainer.max_time:
-    value: 00:00:10:00
+    value: 00:00:5:00
   model.hpo_objective_name:
     value: val_loss
    # Stopping criteria
@@ -32,7 +32,7 @@ parameters:
     min: 5.0e-5
     max: 5.0e-3
   lr_scheduler.step_size:
-    values: [5, 10, 50]
+    values: [5, 10, 20, 50]
   lr_scheduler.gamma:
     value: 0.8
   model.train_subsample_trajectories:
