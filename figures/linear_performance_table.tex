@@ -1,35 +1,21 @@
-\begin{longtable}{llrrrrrrr}
+\begin{tabular}{llrrrrrrr}
 \toprule
-          &                 & \shortstack{Success \\(\%)} & \shortstack{Time \\ (s)} & \shortstack{Params\\ (K)} & \shortstack{Train MSE \\ ($\varepsilon$)} & \shortstack{Test MSE \\ ($\varepsilon$)} & \shortstack{Val MSE \\ ($\varepsilon$)} & \shortstack{Policy Error\\ $\left(\frac{|u - u_{\text{ref}}|}{u_{\text{ref}}}\right)$} \\
+          &                                                                     & \shortstack{Success \\(\%)} & \shortstack{Time \\ (s)} & \shortstack{Params\\ (K)} & \shortstack{Train MSE \\ ($\varepsilon$)} & \shortstack{Test MSE \\ ($\varepsilon$)} & \shortstack{Val MSE \\ ($\varepsilon$)} & \shortstack{Policy Error\\ $\left(\frac{|u - u_{\text{ref}}|}{u_{\text{ref}}}\right)$} \\
 Group & Description &                             &                          &                           &                                           &                                          &                                         &                                                                                        \\
 \midrule
-\endfirsthead
-
-\toprule
-          &                 & \shortstack{Success \\(\%)} & \shortstack{Time \\ (s)} & \shortstack{Params\\ (K)} & \shortstack{Train MSE \\ ($\varepsilon$)} & \shortstack{Test MSE \\ ($\varepsilon$)} & \shortstack{Val MSE \\ ($\varepsilon$)} & \shortstack{Policy Error\\ $\left(\frac{|u - u_{\text{ref}}|}{u_{\text{ref}}}\right)$} \\
-Group & Description &                             &                          &                           &                                           &                                          &                                         &                                                                                        \\
-\midrule
-\endhead
-\midrule
-\multicolumn{9}{r}{{Continued on next page}} \\
-\midrule
-\endfoot
-
+\multirow{2}{*}{Identity} & Baseline &                        48\% &                       28 &                      49.4 &                                   6.7e-07 &                                  5.0e-07 &                                 4.9e-07 &                                             0.10\% \\
+          & Thin (64 nodes) &                        58\% &                       24 &                      12.4 &                                   1.0e-06 &                                  5.6e-07 &                                 5.8e-07 &                                             0.10\% \\
+\cline{1-9}
+\multirow{4}{*}{Moments} & Baseline &                        59\% &                       36 &                      50.3 &                                   9.0e-07 &                                  1.2e-06 &                                 8.7e-07 &                                             0.13\% \\
+          & Moments (1,2) &                        61\% &                       35 &                      50.0 &                                   1.1e-06 &                                  1.0e-06 &                                 8.8e-07 &                                             0.12\% \\
+          & Thin (64 nodes) &                        45\% &                       78 &                      12.9 &                                   8.6e-07 &                                  1.3e-06 &                                 9.3e-07 &                                             0.12\% \\
+          & Very Shallow (1 layer) &                         0\% &                      NaN &                       0.8 &                                       NaN &                                      NaN &                                     NaN &                                                NaN \\
+\cline{1-9}
+\multirow{6}{*}{Deep Sets} & Baseline &                        97\% &                       17 &                     199.6 &                                   1.3e-06 &                                  3.6e-07 &                                 3.6e-07 &                                             0.09\% \\
+          & L = 2 &                        93\% &                       17 &                     201.1 &                                   1.3e-06 &                                  4.3e-07 &                                 4.0e-07 &                                             0.09\% \\
+          & L = 16 &                        93\% &                       14 &                     204.2 &                                   1.5e-06 &                                  3.5e-07 &                                 3.5e-07 &                                             0.10\% \\
+          & $\textup{Deep}~(\phi:\textup{2 layers},  \rho:\textup{4 layers})$ &                       100\% &                       25 &                     215.9 &                                   2.0e-06 &                                  3.7e-07 &                                 3.8e-07 &                                             0.10\% \\
+          & $\textup{Thin}~(\phi,\rho:\textup{64 nodes})$ &                        97\% &                       17 &                      13.2 &                                   4.3e-07 &                                  1.1e-07 &                                 9.1e-08 &                                             0.05\% \\
+          & $\textup{Shallow}~(\phi:\textup{1 layer},  \rho:\textup{2 layers})$ &                         1\% &                       16 &                      68.0 &                                   1.6e-07 &                                  3.5e-07 &                                 3.3e-07 &                                             0.10\% \\
 \bottomrule
-\endlastfoot
-\multirow{2}{*}{Identity} & Baseline &                      0.48\% &                       46 &                      49.4 &                                   8.1e-07 &                                  5.8e-01 &                                 4.9e-07 &                                            1.5e+02 \\
-          & Thin (64 nodes) &                      0.58\% &                       37 &                      12.4 &                                   8.8e-07 &                                  8.9e-07 &                                 5.7e-07 &                                            1.7e-01 \\
-\cline{1-9}
-\multirow{4}{*}{Moments} & Baseline &                      0.59\% &                      NaN &                       NaN &                                       NaN &                                      NaN &                                     NaN &                                                NaN \\
-          & Moments (1,2) &                      0.61\% &                      NaN &                       NaN &                                       NaN &                                      NaN &                                     NaN &                                                NaN \\
-          & Very Shallow (1 layer) &                      0.00\% &                      NaN &                       NaN &                                       NaN &                                      NaN &                                     NaN &                                                NaN \\
-          & Thin (64 nodes) &                      0.45\% &                      NaN &                       NaN &                                       NaN &                                      NaN &                                     NaN &                                                NaN \\
-\cline{1-9}
-\multirow{7}{*}{Deep Sets} & Baseline &                      0.97\% &                       21 &                     199.6 &                                   1.4e-06 &                                  3.7e-07 &                                 3.7e-07 &                                            9.0e-02 \\
-          & L = 2 &                      0.93\% &                       17 &                     201.1 &                                   1.3e-06 &                                  4.5e-07 &                                 4.2e-07 &                                            9.5e-02 \\
-          & L = 16 &                      0.93\% &                       17 &                     204.2 &                                   1.6e-06 &                                  3.9e-07 &                                 3.6e-07 &                                            1.0e-01 \\
-          & Shallow &                      0.01\% &                       37 &                      68.0 &                                   1.3e-06 &                                  1.6e+02 &                                 6.6e-07 &                                            2.8e+02 \\
-          & Deep 4/8 &                      0.82\% &                      168 &                     511.9 &                                   1.7e-06 &                                  6.0e-07 &                                 5.6e-07 &                                            1.1e-01 \\
-          & Deep 2/4 &                      1.00\% &                       25 &                     215.9 &                                   2.0e-06 &                                  3.7e-07 &                                 3.8e-07 &                                            1.0e-01 \\
-          & Thin (64 nodes) &                      0.97\% &                       18 &                      13.2 &                                   4.2e-07 &                                  1.4e-07 &                                 9.4e-08 &                                            5.0e-02 \\
-\end{longtable}
+\end{tabular}
