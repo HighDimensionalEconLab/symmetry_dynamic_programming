@@ -1,4 +1,5 @@
 trainer:
+  accelerator: cpu
   max_epochs: 100
   min_epochs: 0
   max_time: 00:00:15:00
