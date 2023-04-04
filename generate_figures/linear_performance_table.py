@@ -18,7 +18,7 @@ sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 networks = {
 
-'Identity': [["Baseline", "baseline_identity"], []],
+'Identity': [["Baseline", "baseline_identity"]],
 'Moments': [["Baseline: Moments (1,2,3,4)", "baseline_deep_moments"],
                ["Moments (1,2)","L_2_deep_moments"], 
                 ["Very Shallow (1 layer)", "very_shallow_1_layer_deep_moments"]], 
@@ -103,7 +103,10 @@ def linear_performance_table(df):
         sparsify=True,
         escape=False,
     )
-    return latex_str
+    latex_list = latex_str.splitlines()
+    latex_list.insert(6, '\midrule')
+    latex_new = '\n'.join(latex_list)
+    return latex_new
 
 
 first = 0
