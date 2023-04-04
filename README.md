@@ -47,6 +47,12 @@ python investment_euler.py --trainer.max_epochs=5 --model.nu=1.1
 
 Note that for the `nu != 1` there is no closed form to check against.
 
+If you a GPU available and you installed the appropriate version of PyTorch, then you can pass in the accelerator option,
+```bash
+python investment_euler.py --trainer.accelerator=gpu
+```
+Note, however, that the GPU will be slower for less than about 1024 agents.
+
 # Hyperparameter Tuning
 
 Central to deep learning is the need to tuning hyperparameters.  A variety of tooling for ML and deep-learning is there to help, mostly under the category of "ML DevOps".  This includes tools for hyperparameter optimization, model versioning, managing results,  model deployment, and running on clusters/clouds.  Here we will only show one of these tools, which provides simple HPO and outstanding visualization.

@@ -223,7 +223,7 @@ class InvestmentEuler(pl.LightningModule):
             )
 
     # Data and simulation calculations.
-    def simulate(self, num_trajectories, f=None, w=None, omega=None):
+    def simulate(self, X_0, num_trajectories, f=None, w=None, omega=None):
         # Simulates random numbers if not provided.
         if f is None:
             f = self.forward  # use the self.forward(..) by default
@@ -251,7 +251,7 @@ class InvestmentEuler(pl.LightningModule):
             dtype=self.dtype,
         )
 
-        data[:, 0, :] = self.X_0
+        data[:, 0, :] = X_0
         for t in range(0, self.hparams.T):
             data[:, t + 1, :] = (
                 # Simulate using passed in "f",  which could be linear self.forward.
@@ -262,37 +262,45 @@ class InvestmentEuler(pl.LightningModule):
             )
         return torch.cat(data.unbind(0))
 
-    # At this point, the code is running local to the GPU/etc. if used
+    # Setup data/etc.  Supposed to be in setup instead of the __init__
     def setup(self, stage):
         if stage == "fit" or stage is None:
             # quadrature for use within the expectation calculations
             nodes, weights = quantecon.quad.qnwnorm(self.hparams.omega_quadrature_nodes)
-            self.quadrature_nodes = torch.tensor(nodes, dtype=self.dtype, device=self.device)
-            self.quadrature_weights = torch.tensor(weights, dtype=self.dtype, device=self.device)
+            nodes = torch.tensor(nodes, device=self.device, dtype=self.dtype)
+            weights = torch.tensor(weights, device=self.device, dtype=self.dtype)
 
             # Monte Carlo draw for the expectations, possibly normalizing it
             vec = torch.randn(1, self.hparams.N, device=self.device, dtype=self.dtype)
-            self.expectation_shock_vector = (
+            expectation_shock_vector = (
                 (vec - vec.mean()) / vec.std() if self.hparams.normalize_shock_vector else vec
             )
 
             # Draw initial condition for the X_0 to simulate
-            self.X_0_dist = torch.distributions.normal.Normal(  # not a tensor
+            X_0_dist = torch.distributions.normal.Normal(  # not a tensor
                 self.hparams.X_0_loc, self.hparams.X_0_scale
             )
-            self.X_0 = torch.abs(self.X_0_dist.sample((self.hparams.N,)))
+            X_0 = torch.abs(X_0_dist.sample((self.hparams.N,))).type_as(expectation_shock_vector)
 
             # Use a linear policy for initial simulation: h_0 + h_1 mean(X). h_0>0, h_1<0 guarantees stationarity and positivity. |h_0/h_1|<1 guarantees prices p(X)>0 in the sample
             def initial_trajectory_policy(X):
                 return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
 
-            self.train_data = self.simulate(
+            train_data = self.simulate(X_0, 
                 self.hparams.train_trajectories, initial_trajectory_policy
-            )
+            ).type_as(expectation_shock_vector)
             if self.hparams.train_subsample_trajectories > 0:
-                sample_idx = np.random.randint(len(self.train_data), size=self.hparams.train_subsample_trajectories)
-                self.train_data = self.train_data[sample_idx]
-            self.val_data = self.simulate(self.hparams.val_trajectories, initial_trajectory_policy)
+                sample_idx = np.random.randint(len(train_data), size=self.hparams.train_subsample_trajectories)
+                train_data = train_data[sample_idx]
+            val_data = self.simulate(X_0, self.hparams.val_trajectories, initial_trajectory_policy).type_as(expectation_shock_vector)
+
+            # Store buffers for optimization.  Replaces assignment toensure it is transfered to GPU/etc. properly
+            self.register_buffer("quadrature_nodes", nodes) # i.e., instead of self.quadrature_nodes = nodes
+            self.register_buffer("quadrature_weights", weights)
+            self.register_buffer("expectation_shock_vector", expectation_shock_vector)
+            self.register_buffer("X_0", X_0)
+            self.register_buffer("train_data", train_data)
+            self.register_buffer("val_data", val_data)
 
         if stage == "test":
 
@@ -305,7 +313,7 @@ class InvestmentEuler(pl.LightningModule):
 
             test_trajectories = self.hparams.test_trajectories
             # Note that this simulates with the built-in forward function itself, not the linear
-            self.test_data = self.simulate(test_trajectories).reshape(
+            self.test_data = self.simulate(self.X_0, test_trajectories).reshape(
                 [test_trajectories, self.hparams.T + 1, self.hparams.N]
             )
             self.test_data = [
@@ -510,3 +518,5 @@ if __name__ == "__main__":
 
     # Add additional calculations such as HPO objective to the log and save files
     log_and_save(cli.trainer, cli.model, train_time)
+
+
