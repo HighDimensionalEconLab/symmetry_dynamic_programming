@@ -1,11 +1,11 @@
 program: investment_euler.py
-name: deep_sets_overfit_var_N
-description: deep sets over parameterization various N
+name: deep_sets_overfit
+description: deep sets over parameterization with different numbers of datapoints
 method: grid
 
 parameters:
   trainer.logger.tags:
-    value: [deep_sets_overfit_var_N]
+    value: [deep_sets_overfit]
   seed:
     min: 1
     max: 100 # number of ensembles to solve
@@ -16,6 +16,13 @@ parameters:
     value: 00:00:05:00
   trainer.max_epochs:
     value: 400
+  model.hpo_objective_name:
+    value: val_loss
+   # Stopping criteria
+  trainer.callbacks.monitor:
+    value: val_loss
+  trainer.callbacks.stopping_threshold:
+    value: 1.0e-5    
   # Provide distributions and variations for optimizer
   model.N:
     value: 128
