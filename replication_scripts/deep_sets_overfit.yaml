@@ -15,14 +15,10 @@ parameters:
   trainer.max_time:
     value: 00:00:05:00
   trainer.max_epochs:
-    value: 400
-  model.hpo_objective_name:
-    value: val_loss
+    value: 300
    # Stopping criteria
-  trainer.callbacks.monitor:
-    value: val_loss
-  trainer.callbacks.stopping_threshold:
-    value: 1.0e-5    
+  trainer.callbacks:
+     value: [] # turning off early stopping in particular
   # Provide distributions and variations for optimizer
   model.N:
     value: 128
@@ -33,8 +29,10 @@ parameters:
   lr_scheduler.gamma:
     value: 0.8
   model.train_subsample_trajectories:
-    values: [3, 4, 5, 7, 10]
+    values: [2, 3, 4, 5, 7, 10]
   model.train_trajectories:
     value: 1  
+  model.val_trajectories:
+    value: 1 # not using validation for stopping criteria
   model.batch_size:
     value: 2 
