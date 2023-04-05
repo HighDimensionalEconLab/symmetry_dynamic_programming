@@ -3,10 +3,6 @@ name: deep_sets_overfit_var_N
 description: deep sets over parameterization various N
 method: grid
 
-trainer:
-  max_epochs: 
-    value: 400
-
 parameters:
   trainer.logger.tags:
     value: [deep_sets_overfit_var_N]
@@ -17,7 +13,9 @@ parameters:
   trainer.logger.offline:
     value: false # log online for W&B optimization
   trainer.max_time:
-    value: 00:00:5:00
+    value: 00:00:05:00
+  trainer.max_epochs:
+    value: 400
   # Provide distributions and variations for optimizer
   model.N:
     value: 128

@@ -43,22 +43,23 @@ run_sweep_and_agent "deep_sets_nonlinear_nu_150_one_run"
 run_sweep_and_agent "L_2_deep_sets"
 run_sweep_and_agent "L_8_deep_sets"
 run_sweep_and_agent "L_16_deep_sets"
-run_sweep_and_agent "shallow_1_2_deep_sets" # almost not worth trouble.  Likely requires new HPO
+run_sweep_and_agent "shallow_1_2_deep_sets" # almost not worth trouble
 run_sweep_and_agent "deep_2_4_deep_sets"
 run_sweep_and_agent "deep_4_8_deep_sets"
 run_sweep_and_agent "wide_256_deep_sets"
-run_sweep_and_agent "thin_64_deep_sets"
-run_sweep_and_agent "thin_64_identity"
+#run_sweep_and_agent "thin_64_deep_sets"
+#run_sweep_and_agent "thin_64_identity"
 run_sweep_and_agent "L_2_deep_moments"
 run_sweep_and_agent "very_shallow_1_layer_deep_moments"
-run_sweep_and_agent "thin_64_deep_moments"
+#run_sweep_and_agent "thin_64_deep_moments"
 
-# This can take a day given the massive number of variations tested
-run_sweep_and_agent "baseline_deep_sets_N"
+# Overfitting example
+run_sweep_and_agent "deep_sets_overfit_var_N"
 
 # Nonlinear versions
 run_sweep_and_agent "baseline_nonlinear_deep_sets"
 run_sweep_and_agent "baseline_nonlinear_deep_moments"
 
 
-
+# This can take a day given the massive number of variations tested.  Using GPU
+run_sweep_and_agent "baseline_deep_sets_N"
