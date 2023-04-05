@@ -79,7 +79,7 @@ def linear_performance_table(df):
             columns={
                 "success":r"\shortstack{Success \\(\%)}",
                 "train_time": r"\shortstack{Time \\ (s)}",
-                "trainable_parameters": r"\shortstack{Params\\ (K)}",
+                "trainable_parameters": r"\shortstack{Parameters \\ (Thousands, K)}",
                 "train_loss": r"\shortstack{Train MSE \\ ($\varepsilon$)}",
                 "val_loss": r"\shortstack{Val MSE \\ ($\varepsilon$)}",
                 "test_loss": r"\shortstack{Test MSE \\ ($\varepsilon$)}",
