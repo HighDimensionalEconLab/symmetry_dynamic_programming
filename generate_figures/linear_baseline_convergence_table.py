@@ -11,7 +11,6 @@ import os
 import wandb
 
 output_dir = "./figures"
-plot_name = "linear_performance_table"
 
 api = wandb.Api()
 sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
@@ -117,5 +116,5 @@ summary_run_total = summary_run_total.reset_index()
 summary_run_total.rename(columns={'index': 'Group'}, inplace = True)
 summary_run_total= summary_run_total.set_index(['Group', 'Description'])
 
-with open(output_dir + "/error_table.tex", "w") as file:
+with open(output_dir + "/linear_baseline_convergence_table.tex", "w") as file:
     file.write(error_table(summary_run_total))
