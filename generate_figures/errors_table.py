@@ -62,8 +62,8 @@ def summary_run(group, description, tag):
     new_df = pd.DataFrame(df_retcode_0.quantile(0.5).to_dict(), index = [group])
     new_df['Description'] = description
     new_df['retcode = 0'] = df[df['retcode'] ==0].count()['retcode']
-    new_df['retcode = -1'] = df[df['retcode'] ==-1].count()['retcode']
     new_df['retcode = -2'] = df[df['retcode'] ==-2].count()['retcode']
+    new_df['retcode = -1'] = df[df['retcode'] ==-1].count()['retcode']
     new_df['retcode = -3'] = df[df['retcode'] == -3].count()['retcode']
     return(new_df)
 
@@ -73,9 +73,9 @@ def error_table(df):
     df = df.rename(
             columns={
                 "retcode = 0":r"\shortstack{Success \\(\%)}",
-                "retcode = -1": r"\shortstack{Failure -1 \\ (\%)}",
-                "retcode = -2": r"\shortstack{Failure -2\\ (\%)}",
-                "retcode = -3": r"\shortstack{Failure -3 \\ (\%)}",
+                "retcode = -2": r"\shortstack{Violation of transversality\\ (\%)}",
+                "retcode = -1": r"\shortstack{Early stopping failure \\ (\%)}",
+                "retcode = -3": r"\shortstack{Overfitting \\ (\%)}",
             }
         )
 
