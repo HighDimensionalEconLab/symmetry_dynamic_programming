@@ -292,15 +292,18 @@ class InvestmentEuler(pl.LightningModule):
             if self.hparams.train_subsample_trajectories > 0:
                 sample_idx = np.random.randint(len(train_data), size=self.hparams.train_subsample_trajectories)
                 train_data = train_data[sample_idx]
-            val_data = self.simulate(X_0, self.hparams.val_trajectories, initial_trajectory_policy).type_as(expectation_shock_vector)
+            if self.hparams.val_trajectories > 0:
+                val_data = self.simulate(X_0, self.hparams.val_trajectories, initial_trajectory_policy).type_as(expectation_shock_vector)
+                self.register_buffer("val_data", val_data)
+            else:
+                self.val_data = []
 
             # Store buffers for optimization.  Replaces assignment toensure it is transfered to GPU/etc. properly
             self.register_buffer("quadrature_nodes", nodes) # i.e., instead of self.quadrature_nodes = nodes
             self.register_buffer("quadrature_weights", weights)
             self.register_buffer("expectation_shock_vector", expectation_shock_vector)
             self.register_buffer("X_0", X_0)
-            self.register_buffer("train_data", train_data)
-            self.register_buffer("val_data", val_data)
+            self.register_buffer("train_data", train_data)            
 
         if stage == "test":
 

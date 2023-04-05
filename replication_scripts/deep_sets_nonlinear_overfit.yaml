@@ -1,11 +1,11 @@
 program: investment_euler.py
-name: deep_sets_overfit
+name: deep_sets_nonlinear_overfit
 description: deep sets over parameterization with different numbers of datapoints
 method: grid
 
 parameters:
   trainer.logger.tags:
-    value: [deep_sets_overfit]
+    value: [deep_sets_nonlinear_overfit]
   seed:
     min: 1
     max: 100 # number of ensembles to solve
@@ -31,10 +31,12 @@ parameters:
   lr_scheduler.gamma:
     value: 0.8
   model.train_subsample_trajectories:
-    values: [2, 3, 4, 5]
+    values: [4, 5, 10]
   model.train_trajectories:
     value: 1  
   model.val_trajectories:
     value: 0 # not using validation for stopping criteria
   model.batch_size:
-    value: 2 
+    value: 2
+  model.nu:
+    value: 1.5
