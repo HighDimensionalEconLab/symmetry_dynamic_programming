@@ -83,7 +83,7 @@ def linear_performance_table(df):
                 "train_loss": r"\shortstack{Train MSE \\ ($\varepsilon$)}",
                 "val_loss": r"\shortstack{Val MSE \\ ($\varepsilon$)}",
                 "test_loss": r"\shortstack{Test MSE \\ ($\varepsilon$)}",
-                "test_u_rel_error": r"\shortstack{Policy Error\\ $\left(\frac{|u - u_{\text{ref}}|}{u_{\text{ref}}}\right)$}",
+                "test_u_rel_error": r"\shortstack{Policy Error\\ ($\epsilon_{\mathrm{rel}}$)}",
             }
         )
 
