@@ -55,6 +55,7 @@ run_sweep_and_agent "very_shallow_1_layer_deep_moments"
 
 # Overfitting example
 run_sweep_and_agent "deep_sets_overfit"
+run_sweep_and_agent "deep_sets_nonlinear_overfit"
 
 # Nonlinear versions
 run_sweep_and_agent "baseline_nonlinear_deep_sets"
