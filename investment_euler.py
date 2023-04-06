@@ -396,8 +396,8 @@ class InvestmentEuler(pl.LightningModule):
             and (self.current_epoch > 0)
             and (self.current_epoch % self.hparams.reset_trajectories_frequency == 0)
         ):
-            self.train_data = self.simulate(self.hparams.train_trajectories)
-            self.val_data = self.simulate(self.hparams.val_trajectories)
+            self.train_data = self.simulate(self.X_0, self.hparams.train_trajectories)
+            self.val_data = self.simulate(self.X_0, self.hparams.val_trajectories)
 
 
 def log_and_save(trainer, model, train_time):
