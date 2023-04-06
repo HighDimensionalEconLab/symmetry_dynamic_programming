@@ -37,6 +37,7 @@ class InvestmentEuler(pl.LightningModule):
         save_metrics: bool,
         save_test_results: bool,
         test_seed: int,
+        X_0_seed: int,
         check_transversality: bool,
         test_loss_success_threshold: float,
         transversality_X_mean_min: float,
@@ -223,7 +224,7 @@ class InvestmentEuler(pl.LightningModule):
             )
 
     # Data and simulation calculations.
-    def simulate(self, X_0, num_trajectories, f=None, w=None, omega=None):
+    def simulate(self, X_0, num_trajectories, f=None, w=None, omega=None, generator=None):
         # Simulates random numbers if not provided.
         if f is None:
             f = self.forward  # use the self.forward(..) by default
@@ -234,6 +235,7 @@ class InvestmentEuler(pl.LightningModule):
                 self.hparams.N,
                 device=self.device,
                 dtype=self.dtype,
+                generator=generator,
             )
         if omega is None:
             omega = torch.randn(
@@ -242,6 +244,7 @@ class InvestmentEuler(pl.LightningModule):
                 1,
                 device=self.device,
                 dtype=self.dtype,
+                generator=generator,
             )
         data = torch.zeros(
             num_trajectories,
@@ -270,55 +273,81 @@ class InvestmentEuler(pl.LightningModule):
             nodes = torch.tensor(nodes, device=self.device, dtype=self.dtype)
             weights = torch.tensor(weights, device=self.device, dtype=self.dtype)
 
+            # If provided, create a new RNG for reproducibility of the X_0 and expectation shocks
+            if self.hparams.X_0_seed > 0:
+                generator = torch.Generator(device=self.device)
+                generator.manual_seed(self.hparams.X_0_seed)
+            else:
+                generator = None  # otherwise use default RNG
+
             # Monte Carlo draw for the expectations, possibly normalizing it
-            vec = torch.randn(1, self.hparams.N, device=self.device, dtype=self.dtype)
+            vec = torch.randn(
+                1, self.hparams.N, device=self.device, dtype=self.dtype, generator=generator
+            )
             expectation_shock_vector = (
                 (vec - vec.mean()) / vec.std() if self.hparams.normalize_shock_vector else vec
             )
 
             # Draw initial condition for the X_0 to simulate
-            X_0_dist = torch.distributions.normal.Normal(  # not a tensor
-                self.hparams.X_0_loc, self.hparams.X_0_scale
+            X_0 = (
+                torch.normal(
+                    self.hparams.X_0_loc,
+                    self.hparams.X_0_scale,
+                    size=(self.hparams.N,),
+                    generator=generator,
+                )
+                .abs()
+                .type_as(expectation_shock_vector)
             )
-            X_0 = torch.abs(X_0_dist.sample((self.hparams.N,))).type_as(expectation_shock_vector)
 
             # Use a linear policy for initial simulation: h_0 + h_1 mean(X). h_0>0, h_1<0 guarantees stationarity and positivity. |h_0/h_1|<1 guarantees prices p(X)>0 in the sample
             def initial_trajectory_policy(X):
                 return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
 
-            train_data = self.simulate(X_0, 
-                self.hparams.train_trajectories, initial_trajectory_policy
+            train_data = self.simulate(
+                X_0, self.hparams.train_trajectories, initial_trajectory_policy, generator=generator
             ).type_as(expectation_shock_vector)
             if self.hparams.train_subsample_trajectories > 0:
-                sample_idx = np.random.randint(len(train_data), size=self.hparams.train_subsample_trajectories)
+                sample_idx = np.random.randint(
+                    len(train_data), size=self.hparams.train_subsample_trajectories
+                )
                 train_data = train_data[sample_idx]
             if self.hparams.val_trajectories > 0:
-                val_data = self.simulate(X_0, self.hparams.val_trajectories, initial_trajectory_policy).type_as(expectation_shock_vector)
+                val_data = self.simulate(
+                    X_0,
+                    self.hparams.val_trajectories,
+                    initial_trajectory_policy,
+                    generator=generator,
+                ).type_as(expectation_shock_vector)
                 self.register_buffer("val_data", val_data)
             else:
                 self.val_data = []
 
-            # Store buffers for optimization.  Replaces assignment toensure it is transfered to GPU/etc. properly
-            self.register_buffer("quadrature_nodes", nodes) # i.e., instead of self.quadrature_nodes = nodes
+            # Store buffers for optimization.  Replaces assignment to ensure it is transferred to GPU/etc. properly
+            self.register_buffer(
+                "quadrature_nodes", nodes
+            )  # i.e., instead of self.quadrature_nodes = nodes
             self.register_buffer("quadrature_weights", weights)
             self.register_buffer("expectation_shock_vector", expectation_shock_vector)
             self.register_buffer("X_0", X_0)
-            self.register_buffer("train_data", train_data)            
+            self.register_buffer("train_data", train_data)
 
         if stage == "test":
 
             # Initial conditions and vectors for shocks are identical to those in the first stages
-            
+
+            # If provided, create a new RNG for reproducibility of the test shocks
             if self.hparams.test_seed > 0:
-                pl.seed_everything(
-                    self.hparams.test_seed
-                )  # set seed separate for generating test data
+                generator = torch.Generator(device=self.device)
+                generator.manual_seed(self.hparams.test_seed)
+            else:
+                generator = None  # otherwise use default RNG
 
             test_trajectories = self.hparams.test_trajectories
             # Note that this simulates with the built-in forward function itself, not the linear
-            self.test_data = self.simulate(self.X_0, test_trajectories).reshape(
-                [test_trajectories, self.hparams.T + 1, self.hparams.N]
-            )
+            self.test_data = self.simulate(
+                self.X_0, test_trajectories, generator=generator
+            ).reshape([test_trajectories, self.hparams.T + 1, self.hparams.N])
             self.test_data = [
                 {
                     "ensemble": n,
@@ -384,8 +413,7 @@ def log_and_save(trainer, model, train_time):
             if math.isnan(value) or math.isinf(value):
                 return True
 
-            return False # otherwise a valid, non-infinite number
-
+            return False  # otherwise a valid, non-infinite number
 
         # If early stopping, evaluate success
         early_stopping_check_failed = math.nan
@@ -395,7 +423,9 @@ def log_and_save(trainer, model, train_time):
             if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
                 early_stopping_monitor = callback.monitor
                 early_stopping_threshold = callback.stopping_threshold
-                early_stopping_check_failed = not_number_type(cli.trainer.logger.experiment.summary[callback.monitor]) or (
+                early_stopping_check_failed = not_number_type(
+                    cli.trainer.logger.experiment.summary[callback.monitor]
+                ) or (
                     cli.trainer.logger.experiment.summary[callback.monitor]
                     > callback.stopping_threshold
                 )
@@ -405,19 +435,27 @@ def log_and_save(trainer, model, train_time):
         X_T_mean = trainer.model.test_results.loc[
             trainer.model.test_results["t"] == model.hparams.T
         ].X_mean.mean()
-        
+
         # if nu = 1 it is more robust to check the u_rel_error, otherwise assume T is large enough that divergence would occur for X_T
         if not model.hparams.check_transversality:
             transversality_check_failed = math.nan
-        elif (model.hparams.nu == 1) and (
-            not_number_type(cli.trainer.logger.experiment.summary["val_u_rel_error"])
-            or (
-                cli.trainer.logger.experiment.summary["val_u_rel_error"]  # known at validation time
-                > trainer.model.hparams.transversality_u_rel_error
+        elif (
+            (model.hparams.nu == 1)
+            and model.hparams.val_trajectories > 0
+            and (
+                not_number_type(cli.trainer.logger.experiment.summary["val_u_rel_error"])
+                or (
+                    cli.trainer.logger.experiment.summary[
+                        "val_u_rel_error"
+                    ]  # known at validation time
+                    > trainer.model.hparams.transversality_u_rel_error
+                )
             )
         ):
             transversality_check_failed = True
-        elif (model.hparams.nu != 1) and (
+        elif (
+            model.hparams.nu != 1 or (model.hparams.nu == 1 and model.hparams.val_trajectories == 0)
+        ) and (
             not_number_type(X_T_mean)
             or (X_T_mean < model.hparams.transversality_X_mean_min)
             or (X_T_mean > model.hparams.transversality_X_mean_max)
@@ -469,7 +507,7 @@ def log_and_save(trainer, model, train_time):
         trainer.logger.experiment.log({"trainable_parameters": trainable_parameters})
         trainer.logger.experiment.log({"retcode": retcode})
         trainer.logger.experiment.log({"convergence_description": convergence_description})
-        trainer.logger.experiment.log({"X_T_mean": X_T_mean})        
+        trainer.logger.experiment.log({"X_T_mean": X_T_mean})
 
         # Set objective for hyperparameter optimization
         # Objective value given in the settings, or empty
@@ -479,7 +517,7 @@ def log_and_save(trainer, model, train_time):
             ]
         else:
             hpo_objective_value = math.nan
-                    
+
         if model.hparams.always_log_hpo_objective or retcode >= 0:
             trainer.logger.experiment.log({"hpo_objective": hpo_objective_value})
         else:
@@ -521,5 +559,3 @@ if __name__ == "__main__":
 
     # Add additional calculations such as HPO objective to the log and save files
     log_and_save(cli.trainer, cli.model, train_time)
-
-

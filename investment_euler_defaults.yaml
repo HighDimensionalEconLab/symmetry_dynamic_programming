@@ -75,7 +75,8 @@ model:
   print_metrics: false
   save_metrics: false
   save_test_results: false
-  test_seed: 0 # set to 0 to not reseed
+  test_seed: 0 # set to 0 to use default RNG seed
+  X_0_seed: 0 # set to 0 to use default RNG seed
   check_transversality: true
   # if checking transversality for nu != 1, sees divergence of the test mean(X) from iteration. For small T these can be initial condition sensitive
   transversality_X_mean_min: 0.1

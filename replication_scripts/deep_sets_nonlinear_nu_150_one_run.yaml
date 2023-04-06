@@ -43,4 +43,5 @@ parameters:
     value: 16    
   model.test_seed:
     value: 10
-
+  model.X_0_seed:
+    value: 323

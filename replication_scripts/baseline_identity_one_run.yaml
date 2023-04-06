@@ -44,3 +44,5 @@ parameters:
     value: torch.nn.ReLU
   model.test_seed:
     value: 10
+  model.X_0_seed:
+    value: 323        
