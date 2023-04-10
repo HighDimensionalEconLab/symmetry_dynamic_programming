@@ -22,9 +22,9 @@ cols = ["retcode", "test_u_rel_error", "test_loss", "train_loss"]
 
 for i in range(len(overall_tag)):
     x= [ ]
-    x.append(overall_tag[i].config.get("model.train_subsample_trajectories"))
+    x.append(float(overall_tag[i].config.get("model.train_subsample_trajectories")))
     for col in cols:
-        x.append(overall_tag[i].summary.get(col))
+        x.append(float(overall_tag[i].summary.get(col)))
     array_x = np.array(x).reshape(1,len(cols_df))
     if i == 0:
         df =  pd.DataFrame(array_x, columns=cols_df)
@@ -37,9 +37,11 @@ for i in range(len(overall_tag)):
 #Finding the ones that converged
 df_converge = df[df["test_u_rel_error"]< 0.01] # Convergence criteria : test_u_rel_error < 0.01
 # Calculating the succes rates
-results_df_index= [2,3,4,5]
+data_points= sorted(df_converge['Number of data points'].unique().tolist())
+data_points = [int(x) for x in data_points]
+
 success_rate = []
-for i in results_df_index:
+for i in data_points:
     success = 100*len(df_converge[df_converge["Number of data points"] == i])/len(df[df["Number of data points"] == i])
     success_rate.append(success)
 # Creating the result data frame    
@@ -47,7 +49,7 @@ df_results = df_converge.groupby("Number of data points").median()
 df_results['test_u_rel_error'] = df_results['test_u_rel_error']*100
 df_results = df_results.drop(['retcode'], axis=1)
 df_results['success'] = success_rate
-df_results['Number of data points'] = [2,3,4,5]
+df_results['Number of data points'] = data_points
 df_results = df_results[['Number of data points','success', 'train_loss', 'test_loss', 'test_u_rel_error']]
 df_results = df_results.set_index(['Number of data points'])
 # Creating the latex file
