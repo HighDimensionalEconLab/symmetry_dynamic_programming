@@ -121,6 +121,14 @@ class GeneralizedMean(pl.LightningModule):
         self.train_data = self.simulate_data(self.hparams.num_train_points)
         self.val_data = self.simulate_data(self.hparams.num_val_points)
         self.test_data = self.simulate_data(self.hparams.num_test_points)
+        self.test_data = self.simulate(self.hparams.num_test_points).reshape([test_trajectories, self.hparams.T + 1, self.hparams.N])
+        self.test_data = [
+            {   "X": self.test_data[n, t, :],
+                "y_t": self.test_data[n, t, :]????
+            }
+            for n in range(test_trajectories)
+            for t in range(self.hparams.T + 1)
+        ] 
         self.test_results = pd.DataFrame()
 
     def train_dataloader(self):
@@ -172,10 +180,6 @@ def log_and_save(trainer, model, train_time):
                     cli.trainer.logger.experiment.summary[callback.monitor]
                     > callback.stopping_threshold
                 )
-                print(early_stopping_check_failed)
-                print(early_stopping_threshold)
-                print(early_stopping_monitor)
-                print(cli.trainer.logger.experiment.summary[callback.monitor])
                 break
 
 
@@ -183,7 +187,7 @@ def log_and_save(trainer, model, train_time):
         if model.hparams.test_loss_success_threshold == 0:
             test_loss_check_failed = math.nan
         elif not_number_type(cli.trainer.logger.experiment.summary["test_loss"]) or (
-            cli.trainer.logger.experiment.summary["test_loss"] 
+            cli.trainer.logger.experiment.summary["test_loss"]
             > model.hparams.test_loss_success_threshold
         ):
             test_loss_check_failed = True
@@ -255,10 +259,10 @@ def log_and_save(trainer, model, train_time):
 if __name__ == "__main__":
     cli = LightningCLI(
         GeneralizedMean,
-        seed_everything_default=140,
+        seed_everything_default=155,
         run=False,
         save_config_callback=None,  # turn this on to save the full config file rather than just having it uploaded
-        parser_kwargs={"default_config_files": ["generalized_mean_defaults.yaml"]},
+        parser_kwargs={"default_config_files": ["generalized_mean_defaults_E.yaml"]},
         save_config_kwargs={"save_config_overwrite": True},
     )
     # Fit the model.  Separating training time for plotting, and evaluate generalization

@@ -38,7 +38,7 @@ trainer:
         mode: min
         check_finite: true
         divergence_threshold: 1e5 # stops if larger
-        stopping_threshold: 1.0e-6   # If using val_rel_error then order of magnitude 0.05 or so
+        stopping_threshold: 1.0e-6  # If using val_rel_error then order of magnitude 0.05 or so
 
 # CLI for the loggers only modifies the last one:
 # python generalized_mean.py --trainer.max_epochs=5 --trainer.callbacks.stopping_threshold=0.01    
@@ -96,6 +96,7 @@ model:
   print_metrics: false
   save_metrics: false
   save_test_results: false
+  test_loss_success_threshold: 1e-4 # typically failures of overfitting are far above this
 
   # algorithm settings
   num_train_points: 10

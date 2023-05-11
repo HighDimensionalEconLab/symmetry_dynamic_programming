@@ -1,21 +1,17 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import cm
-import yaml
-import pytorch_lightning as pl
-import os
 import wandb
 
 output_dir = "./figures"
 
 api = wandb.Api()
 
-sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
+project = "highdimensionaleconlab/symmetry_dynamic_programming"
 tag = "deep_sets_overfit"
 
 # Downloading the results
-overall_tag = api.runs(sym_runs, filters={"tags": tag})
+overall_tag = api.runs(project, filters={"tags": tag})
 run_num=0 
 cols_df = ['Number of data points', 'retcode', 'test_u_rel_error', 'test_loss', 'train_loss']
 cols = ["retcode", "test_u_rel_error", "test_loss", "train_loss"]  
@@ -54,7 +50,7 @@ df_results = df_results[['Number of data points','success', 'train_loss', 'test_
 df_results = df_results.set_index(['Number of data points'])
 # Creating the latex file
 
-
+"""
 def latex_table(df):
     df = df.rename(
             columns={
@@ -85,4 +81,4 @@ def latex_table(df):
     return latex_new
 
 with open(output_dir + "/linear_overfit_table.tex", "w") as file:
-    file.write(latex_table(df_results))
+    file.write(latex_table(df_results))"""

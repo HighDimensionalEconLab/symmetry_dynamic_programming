@@ -1,74 +1,33 @@
 import wandb
 import pandas as pd
 import matplotlib.pyplot as plt
-import wandb
-from matplotlib import cm
-import yaml
-import os
-from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
-fontsize = 10
-ticksize = 14
-figsize = (8, 3.5)
-params = {
-    "text.usetex": True,
-    "font.family": "serif",
-    "figure.figsize": figsize,
-    "figure.dpi": 80,
-    "figure.edgecolor": "k",
-    "font.size": fontsize,
-    "axes.labelsize": fontsize,
-    "axes.titlesize": fontsize,
-    "xtick.labelsize": ticksize,
-    "ytick.labelsize": ticksize,
-}
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
+from utilities import get_plot_params, satisfying_runs
 
 output_dir = "./figures"
 plot_name = "deep-sets-linear-profiling-var-n"
-
 output_path = output_dir + "/" + plot_name + ".pdf"
 
 api = wandb.Api()
+project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
-sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
-def satisfying_runs(tag):
-    run_num=0 
-    d=[]
-    overall_tag = api.runs(sym_runs, filters={"tags": tag})
-    
-    for i in range(len(overall_tag)):
-        run_num+=1
-        try: 
-            get = dict(overall_tag[i].summary)
-            get['seed'] = int(overall_tag[i].config.get('seed'))
-            get['N'] = int(overall_tag[i].config.get('N'))
-        except:
-            print("THERE IS NO RUN DATA ASSOCIATED")
-        else:
-            d.append(get) 
-    return(pd.DataFrame.from_records(d))
+params = get_plot_params((8, 3.5), 10, 14)
+quantiles= [0.1,0.25,0.5,0.75,0.9]
 
-df_deep = satisfying_runs("baseline_deep_sets_N")            
-
-##once we have retcode will be something like 
-#df_successes= df_deep.loc[df_deep['ret_code']==0]
-
-
+df_deep = satisfying_runs(project,"baseline_deep_sets_N", ['seed', 'N'])            
 df_successes= df_deep.loc[df_deep['retcode']==0]
 
 #making the dataframe for training time quartiles 
-quantiles= [0.1,0.25,0.5,0.75,0.9]
-
-
-
-quant_train_time_deep = df_successes.groupby('N').quantile(quantiles)['train_time'].unstack(level=-1)
+df_successes['train_time'] = pd.to_numeric(df_successes['train_time'])
+quant_train_time_deep = df_successes.groupby('N')['train_time'].quantile(quantiles).unstack(level=-1)
 quant_train_time_deep.reset_index(inplace=True)
 quant_train_time_deep.columns = ['N'] + [f'quantile_{q}' for q in quantiles]
 
 
 #making the dataframe for rel_error quartiles
 # 
-quant_test_u_rel_error_deep = df_successes.groupby('N').quantile(quantiles)['test_u_rel_error'].unstack(level=-1)
+quant_test_u_rel_error_deep = df_successes.groupby('N')['test_u_rel_error'].quantile(quantiles).unstack(level=-1)
 quant_test_u_rel_error_deep.reset_index(inplace=True)
 quant_test_u_rel_error_deep.columns = ['N'] + [f'quantile_{q}' for q in quantiles]
 
@@ -83,7 +42,7 @@ ax_time.set_xscale('log')
 ax_time.xaxis.set_ticks([50, 100, 1000, 10000, 100000])
 plt.title(r"Computation time (seconds)")
 plt.xlabel(r"N")
-plt.legend(prop={"size": fontsize}, loc='upper left')
+plt.legend(prop={"size": params['font.size']}, loc='upper left')
 plt.tight_layout()
 
 
@@ -98,7 +57,8 @@ ax_loss.xaxis.set_ticks([50, 100, 1000, 10000, 100000])
 ax_loss.yaxis.set_ticks([0.0001, 0.001]) 
 plt.title(r"Policy errors ($\epsilon_{\mathrm{rel}}$)")
 plt.xlabel(r"N")
-plt.legend(prop={"size": fontsize}, loc='lower left')
+plt.legend(prop={"size": params['font.size']}, loc='lower left')
 plt.tight_layout()
 
-plt.savefig(output_path)
+plt.show()
+#plt.savefig(output_path)

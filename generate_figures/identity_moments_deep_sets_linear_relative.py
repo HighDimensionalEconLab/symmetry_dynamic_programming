@@ -1,49 +1,26 @@
 import wandb
 import pandas as pd
 import matplotlib.pyplot as plt
-import wandb
-import matplotlib
-from matplotlib import cm
-import yaml
-import os
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 import numpy as np
+from utilities import get_plot_params
 
-
-fontsize = 10
-ticksize = 14
-figsize = (10, 3.5)
-
-params = {
-    "text.usetex": True,
-    "font.family": "serif",
-    "figure.figsize": figsize,
-    "figure.dpi": 80,
-    "figure.edgecolor": "k",
-    "font.size": fontsize,
-    "axes.labelsize": fontsize,
-    "axes.titlesize": fontsize,
-    "xtick.labelsize": ticksize,
-    "ytick.labelsize": ticksize,
-}
-
-
+params = get_plot_params((10,3.5), 10, 14)
 
 output_dir = "./figures"
 plot_name = "identity_moments_deep_sets_linear_relative"
 output_path = output_dir + "/" + plot_name + ".pdf"
+project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 api = wandb.Api()
 
-#overall_tag = api.runs(sym_runs, filters={"tags": "baseline_deep_sets"})
-sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
 def satisfying_runs(tag):
     run_num=0 #dont know a good way to get the first one so that it works
-    overall_tag = api.runs(sym_runs, filters={"tags": tag})
+    overall_tag = api.runs(project, filters={"tags": tag})
     for i in range(len(overall_tag)):
         try: 
             run_id = overall_tag[i].id
-            reference_path = f'{sym_runs}/run-{run_id}-test_results:v0'
+            reference_path = f'{project}/run-{run_id}-test_results:v0'
             artifact = api.artifact(str(reference_path))
             retcode = overall_tag[i].summary.get('retcode') 
             test_loss = float(overall_tag[i].summary.get('test_loss')) 
