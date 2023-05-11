@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import wandb
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
-from utilities import get_plot_params, first_satisfying_run
+from utilities import get_plot_params, get_results_by_tag
 
 params =get_plot_params((6,3.5), 10, 14)
 
@@ -16,11 +16,11 @@ api = wandb.Api()
 project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 
-df_deep = first_satisfying_run(project, "baseline_deep_sets_one_run")
+df_deep = get_results_by_tag(project, "baseline_deep_sets_one_run", test_results = True)
 df_deep = df_deep[df_deep["ensemble"] == 0]
-df_moments = first_satisfying_run(project, "baseline_deep_moments_one_run")
+df_moments = get_results_by_tag(project, "baseline_deep_moments_one_run", test_results = True)
 df_moments = df_moments[df_moments["ensemble"] == 0]
-df_identity = first_satisfying_run(project, "baseline_identity_one_run")
+df_identity = get_results_by_tag(project, "baseline_identity_one_run", test_results = True)
 df_identity = df_identity[df_identity["ensemble"] == 0]
 
 

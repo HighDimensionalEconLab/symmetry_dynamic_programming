@@ -8,7 +8,7 @@ import yaml
 import os
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 import numpy as np
-from utilities import get_plot_params, satisfying_runs1
+from utilities import get_plot_params, get_results_by_tag
 
 
 params = get_plot_params((8,3.5), 10,14) 
@@ -22,37 +22,10 @@ api = wandb.Api()
 
 
 project = "highdimensionaleconlab/symmetry_dynamic_programming"
-def satisfying_runs(tag):
-    test = 0
-    first=True #dont know a good way to get the first one so that it works
-    overall_tag = api.runs(project, filters={"tags": tag})
-    for i in range(len(overall_tag)):
- 
-        run_id = overall_tag[i].id
-        reference_path = f'{project}/run-{run_id}-test_results:v0'
-        artifact = api.artifact(str(reference_path))
-
-        if float(overall_tag[i].summary.get('retcode')) == 0: 
-            get = artifact.get("test_results")
-            data = pd.DataFrame(data = get.data, columns = get.columns)
-            data['seed'] = overall_tag[i].config.get('seed')
-            data['train_time'] = overall_tag[i].summary.get('train_time')
-            data['retcode']=overall_tag[i].summary.get('retcode') 
-            if first == True: 
-                all_df = data
-                first = False
-            else:
-                test+=1
-                all_df = pd.concat([all_df, data])
-            if test >5: 
-                return(all_df)
-
 
 
 #1. deepsets
-
-df_deep = satisfying_runs1(project, "baseline_nonlinear_deep_sets", ['seed'], True, ['train_time', 'retcode'])
- 
+df_deep= get_results_by_tag(project, "baseline_nonlinear_deep_sets", cols_config = ['seed'],test_results = True, cols=['train_time', 'retcode']) 
 df_deep['residual_squared'] = df_deep['residual']**2
 df_deep_0 = df_deep[df_deep['retcode']>=0]
 quant_result_deep = df_deep_0.groupby('t').quantile(quantiles)['residual_squared'].unstack(level=-1)
@@ -60,8 +33,7 @@ quant_result_deep.reset_index(inplace=True)
 quant_result_deep.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
 #2. moments
-
-df_moments = satisfying_runs1(project,"baseline_nonlinear_deep_moments", ['seed'], True, ['train_time', 'retcode']) 
+df_moments = get_results_by_tag(project, "baseline_nonlinear_deep_moments", cols_config = ['seed'],test_results = True, cols=['train_time', 'retcode'])
 df_moments['residual_squared'] = df_moments['residual']**2
 df_moments_0 = df_moments[df_moments['retcode']>=0] #Picking those that converged
 quant_result_moments = df_moments_0.groupby('t').quantile(quantiles)['residual_squared'].unstack(level=-1)
