@@ -13,7 +13,6 @@ from pytorch_lightning.cli import LightningCLI
 from pathlib import Path
 from pytorch_lightning.loggers import WandbLogger
 
-
 class GeneralizedMean(pl.LightningModule):
     def __init__(
         self,
