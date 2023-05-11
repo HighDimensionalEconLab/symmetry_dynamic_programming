@@ -25,7 +25,7 @@ project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 
 #1. deepsets
-df_deep= get_results_by_tag(project, "baseline_nonlinear_deep_sets", cols_config = ['seed'],test_results = True, cols=['train_time', 'retcode']) 
+df_deep= get_results_by_tag(project, "baseline_nonlinear_deep_sets", cols_config = ['seed'],test_results = True, cols_summary=['train_time', 'retcode']) 
 df_deep['residual_squared'] = df_deep['residual']**2
 df_deep_0 = df_deep[df_deep['retcode']>=0]
 quant_result_deep = df_deep_0.groupby('t').quantile(quantiles)['residual_squared'].unstack(level=-1)
@@ -33,7 +33,7 @@ quant_result_deep.reset_index(inplace=True)
 quant_result_deep.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
 #2. moments
-df_moments = get_results_by_tag(project, "baseline_nonlinear_deep_moments", cols_config = ['seed'],test_results = True, cols=['train_time', 'retcode'])
+df_moments = get_results_by_tag(project, "baseline_nonlinear_deep_moments", cols_config = ['seed'],test_results = True, cols_summary=['train_time', 'retcode'])
 df_moments['residual_squared'] = df_moments['residual']**2
 df_moments_0 = df_moments[df_moments['retcode']>=0] #Picking those that converged
 quant_result_moments = df_moments_0.groupby('t').quantile(quantiles)['residual_squared'].unstack(level=-1)

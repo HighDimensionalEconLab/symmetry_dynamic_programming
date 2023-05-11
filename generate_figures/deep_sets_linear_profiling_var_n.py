@@ -14,7 +14,7 @@ project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 params = get_plot_params((8, 3.5), 10, 14)
 quantiles= [0.1,0.25,0.5,0.75,0.9]
-df_deep = get_results_by_tag(project, "baseline_deep_sets_N", ['seed', 'N'])
+df_deep = get_results_by_tag(project, "baseline_deep_sets_N", cols_config=['seed', 'N'])
 #df_deep = satisfying_runs(project,"baseline_deep_sets_N", ['seed', 'N'])            
 df_successes= df_deep.loc[df_deep['retcode']==0]
 

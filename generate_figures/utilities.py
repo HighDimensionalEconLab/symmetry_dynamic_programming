@@ -19,7 +19,7 @@ def get_plot_params(figsize, fontsize, ticksize):
     return(params)
 
 
-def get_results_by_tag(project, tag, cols_config = [], test_results = False, cols = []):
+def get_results_by_tag(project, tag, cols_config = [], test_results = False, cols_summary = []):
     # The `cols` will always automatically ahve the run name in it, which will help with filtering to check if there was more than one run since the new datastructure coudl have multiple rows per run.
     # if test_results = False then just collect all of the cols and cols_config and create a dataframe with them.
     # if test_results = True then create a dataframe by pulling down the test_results artifact, addd the cols and cols_config to that dataframe (which makes repeition but that is OK for our purposes here), and then just concatenates all of those dataframes together
@@ -49,7 +49,7 @@ def get_results_by_tag(project, tag, cols_config = [], test_results = False, col
                 data = pd.DataFrame(data = get.data, columns = get.columns)
                 for n in cols_config:
                     data[n] = runs[i].config.get(n)
-                for n in cols:
+                for n in cols_summary:
                     data[n] = runs[i].summary.get(n)
                 if first == True: 
                     all_df = data
