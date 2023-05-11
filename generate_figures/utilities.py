@@ -32,15 +32,14 @@ def get_results_by_tag(project, tag, test_results = False):
         df = pd.DataFrame.from_dict(cols, orient='index').T
  
         if test_results:
-            print(cols['id'])
             reference_path = f"{project}/run-{cols['id']}-test_results:v0"
             test_results = api.artifact(str(reference_path)).get("test_results")
             data = pd.DataFrame(data = test_results.data, columns = test_results.columns)
             df = pd.concat([df, data], axis = 1)
             df.fillna(method='ffill', inplace=True)
         df_test_results = pd.concat([df, df_test_results])
+        
         if count == 5:
-            print('stop')
             return(df_test_results)  
 
     return(df_test_results) 
