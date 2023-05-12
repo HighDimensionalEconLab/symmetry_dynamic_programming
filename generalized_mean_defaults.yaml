@@ -1,4 +1,5 @@
 trainer:
+  accelerator: cpu
   max_epochs: 1000
   min_epochs: 0
   max_time: 00:00:3:00
@@ -10,7 +11,7 @@ trainer:
       offline: true # set to true to not upload during testing
       log_model: false # set to true to save the model at the end
       name: null # can set name or have it automatically generated
-      project: generalized_mean_examples
+      project: symmetry_examples
       group: null # can group related runs
       tags:
         - basic_example
@@ -19,17 +20,16 @@ trainer:
       init_args:
         logging_interval: step
         log_momentum: false
-    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
-      init_args:
-        filename: best
-        monitor: val_loss
-        verbose: false
-        save_last: true
-        save_top_k: 1
-        save_weights_only: true
-        mode: min
-        auto_insert_metric_name: true
-    # nonbinding for LBFGS.  Used in conjunction with the hpo_objective to see if a result was successful in some cases
+    # - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+    #   init_args:
+    #     filename: best
+    #     monitor: _loss
+    #     verbose: false
+    #     save_last: true
+    #     save_top_k: 1
+    #     save_weights_only: true
+    #     mode: min
+    #     auto_insert_metric_name: true
     - class_path: pytorch_lightning.callbacks.EarlyStopping
       init_args:
         monitor: train_loss # val_loss or val_rel_error is normally a better choice, but looking at fitting/overfitting here.
@@ -39,28 +39,6 @@ trainer:
         check_finite: true
         divergence_threshold: 1e5 # stops if larger
         stopping_threshold: 1.0e-6   # If using val_rel_error then order of magnitude 0.05 or so
-
-# CLI for the loggers only modifies the last one:
-# python generalized_mean.py --trainer.max_epochs=5 --trainer.callbacks.stopping_threshold=0.01    
-
-
-# LBFGS it is very fast, but sometimes can't hit the lower stopping_threshold for some N.  set to 0.0075 for example and it can usually achieve it.
-# set trainer.max_epochs=1
-# Set the maximum number of iterations higher?
-# python generalized_mean.py --optimizer.class_path=torch.optim.LBFGS --optimizer.tolerance_grad=1.0e-7 --optimizer.lr=1.0 --optimizer.max_iter=5000
-
-# LBFGS has trouble with bigger variances
-# optimizer:
-#   class_path: torch.optim.LBFGS
-#   init_args:
-#     tolerance_grad: 1.0e-7
-#     max_iter: 5000
-#     lr: 1.0
-#     line_search_fn: null # 'strong_wolfe' doesn't seem to help much here
-
-
-# To override on the command line:
-# python generalized_mean.py --model.N=16 --optimizer.lr=0.005 --optimizer.class_path=torch.optim.Adam
 optimizer:
   class_path: torch.optim.Adam
   init_args:
@@ -91,11 +69,13 @@ model:
 
   # Settings for output
   verbose: false
-  hpo_objective_name: test_rel_error
-  always_log_hpo_objective: false
+  hpo_objective_name: test_loss
+  always_log_hpo_objective: false  
   print_metrics: false
   save_metrics: false
   save_test_results: false
+  test_seed: 0 # set to 0 to use default RNG seed
+  train_data_seed: 0 # set to 0 to use default RNG seed
 
   # algorithm settings
   num_train_points: 10
@@ -103,7 +83,9 @@ model:
   num_test_points: 200
   batch_size: 32
   shuffle_training: true
-
+  test_loss_success_threshold: 1e-4 # typically failures of overfitting are far above this
+  early_stopping_success_threshold: 1e-6 # 0.0 # by default should be zero, but sometimes there are bugs in PL early stopping, especially with train_loss?
+  
   ## Invariance with NN
   ml_model:
     class_path: econ_layers.layers.DeepSet
@@ -126,22 +108,6 @@ model:
       rho_activator:
         class_path: torch.nn.ReLU
 
-  ## Invariance with Moments
-  # ml_model:
-  #   class_path: econ_layers.layers.DeepSetMoments
-  #   init_args:
-  #     n_in: 1
-  #     n_out: 1
-  #     L: 2 # also the number of moments
-
-  #     rho_layers: 2
-  #     rho_hidden_dim: 128
-  #     rho_hidden_bias: false
-  #     rho_last_bias: true
-  #     rho_activator:
-  #       class_path: torch.nn.ReLU
-
-
   ## No invariants
   # python generalized_mean.py --model.ml_model.class_path=econ_layers.layers.FlexibleSequential --model.N=32 --model.ml_model.n_in=32 --model.ml_model.layers=3 --model.ml_model.hidden_dim=256 --trainer.max_epochs=1000
   # ml_model:
@@ -153,3 +119,23 @@ model:
   #     hidden_dim: 256
   #     hidden_bias: true
   #     last_bias: true
+
+
+# CLI for the loggers only modifies the last one:
+# python generalized_mean.py --trainer.max_epochs=5 --trainer.callbacks.stopping_threshold=0.01    
+
+
+# LBFGS it is very fast, but sometimes can't hit the lower stopping_threshold for some N.  set to 0.0075 for example and it can usually achieve it.
+# set trainer.max_epochs=1
+# Set the maximum number of iterations higher?
+# python generalized_mean.py --optimizer.class_path=torch.optim.LBFGS --optimizer.tolerance_grad=1.0e-7 --optimizer.lr=1.0 --optimizer.max_iter=5000
+
+# LBFGS has trouble with bigger variances
+# optimizer:
+#   class_path: torch.optim.LBFGS
+#   init_args:
+#     tolerance_grad: 1.0e-7
+#     max_iter: 5000
+#     lr: 1.0
+#     line_search_fn: null # 'strong_wolfe' doesn't seem to help much here
+
