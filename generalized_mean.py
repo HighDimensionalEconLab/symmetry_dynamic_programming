@@ -30,6 +30,9 @@ class GeneralizedMean(pl.LightningModule):
         print_metrics: bool,
         save_metrics: bool,
         save_test_results: bool,
+        test_seed: int,
+        train_data_seed: int,
+        test_loss_success_threshold: float,
         # parameters for method
         num_train_points: int,
         num_val_points: int,
