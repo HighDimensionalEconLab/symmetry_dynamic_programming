@@ -26,7 +26,10 @@ def get_results_by_tag(
     get_config=False,
     get_test_results=False,
     max_runs=1000,
-    drop_summary_cols=["test_results", "_wandb"],
+    drop_summary_cols=[
+        "test_results",
+        "_wandb",
+    ],  # causes trouble when merging the test_results dataframe
     drop_config_cols=[],
 ):
 
@@ -38,10 +41,9 @@ def get_results_by_tag(
         id = run.id
         cols = {"id": id, "name": run.name}
         if get_summary:
+            # dropping details which don't fit in dataframes well
             cols.update(dict(run.summary))
-            for (
-                col_name
-            ) in drop_summary_cols:  # dropping details which don't fit in dataframes well
+            for col_name in drop_summary_cols:
                 if cols.get(col_name) is not None:
                     del cols[col_name]
         if get_config:
