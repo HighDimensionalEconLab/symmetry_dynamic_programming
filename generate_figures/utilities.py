@@ -18,31 +18,34 @@ def plot_params(figsize, fontsize, ticksize):
 
 
 
-def get_results_by_tag(project, tag, test_results = False):
-    api = wandb.Api()
-    count=0
+def get_results_by_tag(api, project, tag, get_summary = True, get_config = False, get_test_results = False, max_runs = 1000):
     runs = api.runs(project, filters={"tags": tag})
-    df_test_results = pd.DataFrame()
-    for i in range(len(runs)):
-        count+=1
-        df = pd.DataFrame()
-        cols = dict(runs[i].summary)
-        cols.update(dict(runs[i].config))
-        cols['id'] = runs[i].id
-        df = pd.DataFrame.from_dict(cols, orient='index').T
+    
+    df = pd.DataFrame()
+    for i in range(min(len(runs), max_runs)):
+        id = runs[i].id
+        cols = {'id': id, 'name': runs[i].name}
+        if get_summary:
+            cols.update(dict(runs[i].summary))
+        if get_config:
+            cols.update(dict(runs[i].config))        
  
-        if test_results:
-            reference_path = f"{project}/run-{cols['id']}-test_results:v0"
+        # Conditionally get the test results or just directly add the new values for the columns
+        if get_test_results:
+            reference_path = f"{project}/run-{id}-test_results:v0"
             test_results = api.artifact(str(reference_path)).get("test_results")
-            data = pd.DataFrame(data = test_results.data, columns = test_results.columns)
-            df = pd.concat([df, data], axis = 1)
-            df.fillna(method='ffill', inplace=True)
-        df_test_results = pd.concat([df, df_test_results])
-        
-        if count == 5:
-            return(df_test_results)  
+            run_data = pd.DataFrame(data = test_results.data, columns = test_results.columns)
 
-    return(df_test_results) 
+            # Add columns across everything in the test_results
+            for k, v in cols.items():
+                run_data[k] = v
+        else:
+            # Create a dataframe with one row from the columns
+            run_data = pd.DataFrame({k: [v] for k, v in cols.items()})
+
+        df = pd.concat([df, run_data], ignore_index=True)
+        
+    return df
 
 
 
