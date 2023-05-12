@@ -1,6 +1,7 @@
 import pandas as pd
 import wandb
 
+
 def plot_params(figsize, fontsize, ticksize):
     params = {
         "text.usetex": True,
@@ -14,35 +15,46 @@ def plot_params(figsize, fontsize, ticksize):
         "xtick.labelsize": ticksize,
         "ytick.labelsize": ticksize,
     }
-    return(params)
+    return params
 
 
+def get_results_by_tag(
+    api,
+    project,
+    tag,
+    get_summary=True,
+    get_config=False,
+    get_test_results=False,
+    max_runs=1000,
+    drop_summary_cols=["test_results", "_wandb"],
+    drop_config_cols=[],
+):
 
-def get_results_by_tag(api, project, tag, get_summary = True, get_config = False, get_test_results = False, max_runs = 1000, drop_summary_cols = ["test_results", "_wandb"], drop_config_cols = []):
-
-    runs = api.runs(project, filters={"tags": tag})    
-    df = pd.DataFrame() # will concatenate
+    runs = api.runs(project, filters={"tags": tag})
+    df = pd.DataFrame()  # will concatenate
 
     for i in range(min(len(runs), max_runs)):
         run = runs[i]
         id = run.id
-        cols = {'id': id, 'name': run.name}
+        cols = {"id": id, "name": run.name}
         if get_summary:
             cols.update(dict(run.summary))
-            for col_name in drop_summary_cols: # dropping details which don't fit in dataframes well
-                if cols.get(col_name) is not None: 
+            for (
+                col_name
+            ) in drop_summary_cols:  # dropping details which don't fit in dataframes well
+                if cols.get(col_name) is not None:
                     del cols[col_name]
         if get_config:
-            cols.update(dict(run.config))       
+            cols.update(dict(run.config))
             for col_name in drop_config_cols:
-                if cols.get(col_name) is not None: 
-                    del cols[col_name]             
- 
+                if cols.get(col_name) is not None:
+                    del cols[col_name]
+
         # Conditionally get the test results or just directly add the new values for the columns
         if get_test_results:
             reference_path = f"{project}/run-{id}-test_results:v0"
             test_results = api.artifact(str(reference_path)).get("test_results")
-            run_data = pd.DataFrame(data = test_results.data, columns = test_results.columns)
+            run_data = pd.DataFrame(data=test_results.data, columns=test_results.columns)
 
             # Add columns across everything for dropped columns.  Repetition but allows for indexing later
             for k, v in cols.items():
@@ -52,5 +64,5 @@ def get_results_by_tag(api, project, tag, get_summary = True, get_config = False
             run_data = pd.DataFrame({k: [v] for k, v in cols.items()})
 
         df = pd.concat([df, run_data], ignore_index=True)
-        
+
     return df
