@@ -9,11 +9,11 @@ import timeit
 import econ_layers
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from econ_layers.utilities import dict_to_cpu
 from pytorch_lightning.cli import LightningCLI
 from pathlib import Path
 from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import TensorDataset
+
 
 class GeneralizedMean(pl.LightningModule):
     def __init__(
@@ -53,16 +53,16 @@ class GeneralizedMean(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y = y.unsqueeze(1) # to enable broadcasting of self(x)
-        loss = F.mse_loss(self(x), y, reduction='mean')
+        y = y.unsqueeze(1)  # to enable broadcasting of self(x)
+        loss = F.mse_loss(self(x), y, reduction="mean")
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y = y.unsqueeze(1) # to enable broadcasting of self(x)
+        y = y.unsqueeze(1)  # to enable broadcasting of self(x)
         residuals = y - self(x)
-        loss = F.mse_loss(self(x), y, reduction='mean')
+        loss = F.mse_loss(self(x), y, reduction="mean")
 
         rel_error = torch.mean(torch.abs(residuals) / torch.abs(y))
         abs_error = torch.mean(torch.abs(residuals))
@@ -73,10 +73,10 @@ class GeneralizedMean(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y_f = batch
-        y_f = y_f.unsqueeze(1) # to enable broadcasting of self(x)        
+        y_f = y_f.unsqueeze(1)  # to enable broadcasting of self(x)
         y = self(x)
         residuals = y_f - y
-        loss = (residuals**2).sum() / len(residuals)
+        loss = F.mse_loss(y_f, y, reduction="mean")
         rel_error = torch.abs(y_f - y) / torch.abs(y_f)
         abs_error = torch.abs(y_f - y)
 
@@ -84,15 +84,13 @@ class GeneralizedMean(pl.LightningModule):
             [
                 self.test_results,
                 pd.DataFrame(
-                    dict_to_cpu(
-                        {
-                            "x_norm": x.norm(dim=1),  # x is too large to store
-                            "f_x": y_f,
-                            "f_hat_x": y,
-                            "rel_error": rel_error,
-                            "abs_error": abs_error,
-                        }
-                    )
+                    {
+                        "x_norm": x.norm(dim=1).cpu().numpy().tolist(),  # x is too large to store
+                        "f_x": y_f.squeeze().cpu().numpy().tolist(),
+                        "f_hat_x": y.squeeze().cpu().numpy().tolist(),
+                        "rel_error": rel_error.squeeze().cpu().numpy().tolist(),
+                        "abs_error": abs_error.squeeze().cpu().numpy().tolist(),
+                    }
                 ),
             ]
         )
@@ -102,20 +100,37 @@ class GeneralizedMean(pl.LightningModule):
 
     # simulate DGP
     def simulate_data(self, num_points, generator=None):
-        X = torch.empty(num_points, self.hparams.N, device = self.device, dtype = self.dtype)
+        X = torch.empty(num_points, self.hparams.N, device=self.device, dtype=self.dtype)
         for i in range(0, num_points):
-            a_i = torch.empty(1).uniform_(self.hparams.a_min, self.hparams.a_max, generator=generator)
-            if self.hparams.X_distribution=="normal":
-                X[i] = torch.normal(a_i, self.hparams.std, size=(self.hparams.N,), device=self.device,
-                dtype=self.dtype,generator=generator)
-            elif self.hparams.X_distribution=="uniform":
-                d = self.hparams.std * math.sqrt(3) # ensures std is correct
-                X[i] = torch.rand(self.hparams.N,device=self.device,
-                dtype=self.dtype, generator=generator) * 2 * d + a_i - d # uniform in [a_i - d, a_i + d]
+            a_i = torch.empty(1).uniform_(
+                self.hparams.a_min, self.hparams.a_max, generator=generator
+            )
+            if self.hparams.X_distribution == "normal":
+                X[i] = torch.normal(
+                    a_i,
+                    self.hparams.std,
+                    size=(self.hparams.N,),
+                    device=self.device,
+                    dtype=self.dtype,
+                    generator=generator,
+                )
+            elif self.hparams.X_distribution == "uniform":
+                d = self.hparams.std * math.sqrt(3)  # ensures std is correct
+                X[i] = (
+                    torch.rand(
+                        self.hparams.N, device=self.device, dtype=self.dtype, generator=generator
+                    )
+                    * 2
+                    * d
+                    + a_i
+                    - d
+                )  # uniform in [a_i - d, a_i + d]
             else:
                 raise ValueError("Distribution not supported")
-            
-        Y = X.pow(self.hparams.p).mean(dim=1).pow(1 / self.hparams.p)  # generalized mean  Doing mean over each row
+
+        Y = (
+            X.pow(self.hparams.p).mean(dim=1).pow(1 / self.hparams.p)
+        )  # generalized mean  Doing mean over each row
         return X, Y
 
     def setup(self, stage):
@@ -131,18 +146,18 @@ class GeneralizedMean(pl.LightningModule):
             self.train_data = TensorDataset(X, Y)
 
             if self.hparams.num_val_points > 0:
-                X, Y = self.simulate_data(self.hparams.num_val_points,generator=generator)
+                X, Y = self.simulate_data(self.hparams.num_val_points, generator=generator)
                 self.val_data = TensorDataset(X, Y)
             else:
                 self.val_data = []
-        if stage == "test":            
+        if stage == "test":
             if self.hparams.test_seed > 0:
                 generator = torch.Generator(device=self.device)
                 generator.manual_seed(self.hparams.test_seed)
             else:
                 generator = None  # otherwise use default RNG
 
-            X, Y = self.simulate_data(self.hparams.num_test_points,generator=generator)
+            X, Y = self.simulate_data(self.hparams.num_test_points, generator=generator)
             self.test_data = TensorDataset(X, Y)
             self.test_results = pd.DataFrame()
 
