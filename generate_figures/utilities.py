@@ -30,7 +30,9 @@ def get_results_by_tag(
         "test_results",
         "_wandb",
     ],  # causes trouble when merging the test_results dataframe
-    drop_config_cols=[],
+    drop_config_cols=[
+        "trainer.logger.tags",
+    ],
 ):
 
     runs = api.runs(project, filters={"tags": tag})

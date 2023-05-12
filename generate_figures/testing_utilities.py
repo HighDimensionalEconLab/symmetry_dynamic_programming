@@ -28,6 +28,9 @@ assert(df.t.nunique() == 64)
 df.drop(columns=["id", "name"], inplace=True) # given single run could drop to clean up clutter, but not really
 df.set_index(["ensemble", "t"], inplace=True) # can index as we see fit.
 
+# check the config as well
+df = get_results_by_tag(api, project,"deep_sets_nonlinear_nu_150_one_run", get_summary = False, get_config = True, get_test_results=True)
+
 #This is a big one and includes summary statistics.  Some examples below
 df = get_results_by_tag(api, project,"baseline_deep_moments", get_test_results=True, max_runs = 10)
 assert(df.id.nunique() == 10)
