@@ -7,12 +7,13 @@ import numpy as np
 import wandb
 import timeit
 import econ_layers
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from econ_layers.utilities import dict_to_cpu
 from pytorch_lightning.cli import LightningCLI
 from pathlib import Path
 from pytorch_lightning.loggers import WandbLogger
-
+from torch.utils.data import TensorDataset
 
 class GeneralizedMean(pl.LightningModule):
     def __init__(
@@ -52,15 +53,16 @@ class GeneralizedMean(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        residuals = y - self(x)
-        loss = (residuals**2).sum() / len(residuals)
+        y = y.unsqueeze(1) # to enable broadcasting of self(x)
+        loss = F.mse_loss(self(x), y, reduction='mean')
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
+        y = y.unsqueeze(1) # to enable broadcasting of self(x)
         residuals = y - self(x)
-        loss = (residuals**2).sum() / len(residuals)
+        loss = F.mse_loss(self(x), y, reduction='mean')
 
         rel_error = torch.mean(torch.abs(residuals) / torch.abs(y))
         abs_error = torch.mean(torch.abs(residuals))
@@ -71,6 +73,7 @@ class GeneralizedMean(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y_f = batch
+        y_f = y_f.unsqueeze(1) # to enable broadcasting of self(x)        
         y = self(x)
         residuals = y_f - y
         loss = (residuals**2).sum() / len(residuals)
@@ -98,45 +101,74 @@ class GeneralizedMean(pl.LightningModule):
         self.log("test_abs_error", abs_error.mean(), prog_bar=True)
 
     # simulate DGP
-    def simulate_data(self, num_points):
-        simulated_data = []
+    def simulate_data(self, num_points, generator=None):
+        X = torch.empty(num_points, self.hparams.N, device = self.device, dtype = self.dtype)
         for i in range(0, num_points):
-            a_i = np.random.uniform(self.hparams.a_min, self.hparams.a_max)
+            a_i = torch.empty(1).uniform_(self.hparams.a_min, self.hparams.a_max, generator=generator)
             if self.hparams.X_distribution=="normal":
-                X = torch.normal(a_i, self.hparams.std, size=(self.hparams.N,))
+                X[i] = torch.normal(a_i, self.hparams.std, size=(self.hparams.N,), device=self.device,
+                dtype=self.dtype,generator=generator)
             elif self.hparams.X_distribution=="uniform":
                 d = self.hparams.std * math.sqrt(3) # ensures std is correct
-                X = torch.rand(self.hparams.N) * 2 * d + a_i - d # uniform in [a_i - d, a_i + d]
+                X[i] = torch.rand(self.hparams.N,device=self.device,
+                dtype=self.dtype, generator=generator) * 2 * d + a_i - d # uniform in [a_i - d, a_i + d]
             else:
                 raise ValueError("Distribution not supported")
-            y = X.pow(self.hparams.p).mean().pow(1 / self.hparams.p)  # generalized mean
-            simulated_data.append((X, y.unsqueeze(0)))
-        return simulated_data
+            
+        Y = X.pow(self.hparams.p).mean(dim=1).pow(1 / self.hparams.p)  # generalized mean  Doing mean over each row
+        return X, Y
 
-    # At this point, the code is running local to the GPU/etc.
     def setup(self, stage):
-        self.train_data = self.simulate_data(self.hparams.num_train_points)
-        self.val_data = self.simulate_data(self.hparams.num_val_points)
-        self.test_data = self.simulate_data(self.hparams.num_test_points)
-        self.test_results = pd.DataFrame()
+        if stage == "fit" or stage is None:
+            if self.hparams.train_data_seed > 0:
+                generator = torch.Generator(device=self.device)
+                generator.manual_seed(self.hparams.train_data_seed)
+            else:
+                generator = None  # otherwise use default RNG
+
+            # self.train_data = self.old_simulate_data(self.hparams.num_train_points)
+            X, Y = self.simulate_data(self.hparams.num_train_points, generator=generator)
+            self.train_data = TensorDataset(X, Y)
+
+            if self.hparams.num_val_points > 0:
+                X, Y = self.simulate_data(self.hparams.num_val_points,generator=generator)
+                self.val_data = TensorDataset(X, Y)
+            else:
+                self.val_data = []
+        if stage == "test":            
+            if self.hparams.test_seed > 0:
+                generator = torch.Generator(device=self.device)
+                generator.manual_seed(self.hparams.test_seed)
+            else:
+                generator = None  # otherwise use default RNG
+
+            X, Y = self.simulate_data(self.hparams.num_test_points,generator=generator)
+            self.test_data = TensorDataset(X, Y)
+            self.test_results = pd.DataFrame()
 
     def train_dataloader(self):
         return DataLoader(
             self.train_data,
-            batch_size=self.hparams.batch_size,
+            batch_size=self.hparams.batch_size
+            if self.hparams.batch_size > 0
+            else len(self.train_data),
             shuffle=self.hparams.shuffle_training,
         )
 
     def val_dataloader(self):
         return DataLoader(
             self.val_data,
-            batch_size=self.hparams.batch_size,
+            batch_size=self.hparams.batch_size
+            if self.hparams.batch_size > 0
+            else len(self.val_data),
         )
 
     def test_dataloader(self):
         return DataLoader(
             self.test_data,
-            batch_size=self.hparams.batch_size,
+            batch_size=self.hparams.batch_size
+            if self.hparams.batch_size > 0
+            else len(self.test_data),
         )
 
 
