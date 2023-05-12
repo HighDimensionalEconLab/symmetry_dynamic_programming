@@ -1,22 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-import os
+from utilities import plot_params
 
-fontsize= 16
-ticksize = 14
-figsize = (8, 3.5)
-params = {"text.usetex": True,
-    'font.family':'serif',
-    "figure.figsize":figsize, 
-    'figure.dpi': 80,
-    'figure.edgecolor': 'k',
-    'font.size': fontsize, 
-    'axes.labelsize': fontsize,
-    'axes.titlesize': fontsize,
-    'xtick.labelsize': ticksize,
-    'ytick.labelsize': ticksize
-}
+params = plot_params((8,3.5))
 
 # Defining the output path
 output_dir = "./figures"

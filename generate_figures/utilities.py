@@ -1,8 +1,6 @@
 import pandas as pd
-import wandb
 
-
-def plot_params(figsize, fontsize, ticksize):
+def plot_params(figsize, fontsize=10, ticksize=14):
     params = {
         "text.usetex": True,
         "font.family": "serif",

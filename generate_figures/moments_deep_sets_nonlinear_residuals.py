@@ -2,30 +2,10 @@ import wandb
 import pandas as pd
 import matplotlib.pyplot as plt
 import wandb
-import matplotlib
-from matplotlib import cm
-import yaml
-import os
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
-import numpy as np
+from utilities import get_results_by_tag, plot_params
 
-
-fontsize = 10
-ticksize = 14
-figsize = (8, 3.5)
-
-params = {
-    "text.usetex": True,
-    "font.family": "serif",
-    "figure.figsize": figsize,
-    "figure.dpi": 80,
-    "figure.edgecolor": "k",
-    "font.size": fontsize,
-    "axes.labelsize": fontsize,
-    "axes.titlesize": fontsize,
-    "xtick.labelsize": ticksize,
-    "ytick.labelsize": ticksize,
-}
+params = plot_params((8,3.5))
 
 output_dir = "./figures"
 plot_name = "moments-deep-sets-nonlinear-residual"
@@ -33,79 +13,37 @@ output_path = output_dir + "/" + plot_name + ".pdf"
 
 api = wandb.Api()
 
-
-sym_runs = "highdimensionaleconlab/symmetry_dynamic_programming"
-def satisfying_runs(tag):
-    run_num=0 #dont know a good way to get the first one so that it works
-    overall_tag = api.runs(sym_runs, filters={"tags": tag})
-    for i in range(len(overall_tag)):
-        try: 
-            run_id = overall_tag[i].id
-            reference_path = f'{sym_runs}/run-{run_id}-test_results:v0'
-            artifact = api.artifact(str(reference_path))
-            retcode = overall_tag[i].summary.get('retcode') 
-            test_loss = float(overall_tag[i].summary.get('test_loss')) 
-            
-             
-        except:
-            print("THERE IS NO RUN DATA ASSOCIATED")
-        else:
-            if retcode == 0 and np.isnan(test_loss) == False: 
-                get = artifact.get("test_results")
-                run_num+=1 #was breaking as no run data with first logged run
-                data = pd.DataFrame(data = get.data, columns = get.columns)
-                data['seed'] = overall_tag[i].config.get('seed')
-                data['train_time'] = overall_tag[i].summary.get('train_time')
-                data['retcode']=overall_tag[i].summary.get('retcode') 
-                if run_num == 1: 
-                    all_df = data
-                else:
-                    all_df = pd.concat([all_df, data])
-    return(all_df)
-
+project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 # Preparing the results
 quantiles= [0.1,0.25,0.5,0.75,0.9]
+tags =['baseline_nonlinear_deep_moments', 'baseline_nonlinear_deep_sets']
+title_names = ['Moments', 'ReLU']
+for n, tag in enumerate(tags):
+    df = get_results_by_tag(api, project, tag, get_test_results=True, max_runs=5)
+    #assert(df_deep.id.nunique() == 100)
+    df = df[df['retcode']>=0]
+    df['residual_squared'] = df['residual']**2
+    quant_result = df.groupby('t')['residual_squared'].quantile(quantiles).unstack(level=-1)
+    quant_result.reset_index(inplace=True)
+    quant_result.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
 
-#1. deepsets
+    if n ==0:
+        ax_identity = plt.subplot(120+n+1)
+        ax_identity.set_yscale('log')
+        ax=ax_identity
+    else: 
+        ax = plt.subplot(120+n+1, sharey=ax_identity)
 
-df_deep = satisfying_runs("baseline_nonlinear_deep_sets") 
-df_deep['residual_squared'] = df_deep['residual']**2
-df_deep_0 = df_deep[df_deep['retcode']>=0]
-quant_result_deep = df_deep_0.groupby('t').quantile(quantiles)['residual_squared'].unstack(level=-1)
-quant_result_deep.reset_index(inplace=True)
-quant_result_deep.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
+    plt.rcParams.update(params)
+    plt.plot(quant_result["t"], quant_result["quantile_0.5"], label= r"Median")
+    plt.fill_between(quant_result["t"], quant_result["quantile_0.1"], quant_result["quantile_0.9"], color='cornflowerblue', alpha=0.2, label = r"$10$th and $90$th percentiles")
+    plt.fill_between(quant_result["t"], quant_result["quantile_0.25"], quant_result["quantile_0.75"], color='cornflowerblue', alpha=0.6,  label = r"$25$th and $75$th percentiles")
+    plt.title(fr"""Policy errors ($\epsilon_{{\mathrm{{rel}}}}$) with $\phi(${title_names[n]}$)$""")
+    plt.xlabel(r"Time($t$)")
+    plt.legend(prop={"size": params['font.size']}, loc='lower right')
+    plt.tight_layout()
+    
+plt.show()
 
-#2. moments
-
-df_moments = satisfying_runs("baseline_nonlinear_deep_moments") 
-df_moments['residual_squared'] = df_moments['residual']**2
-df_moments_0 = df_moments[df_moments['retcode']>=0] #Picking those that converged
-quant_result_moments = df_moments_0.groupby('t').quantile(quantiles)['residual_squared'].unstack(level=-1)
-quant_result_moments.reset_index(inplace=True)
-quant_result_moments.columns = ['t'] + [f'quantile_{q}' for q in quantiles]
-
-plt.rcParams.update(params)
-
-# plotting
-
-ax_moments = plt.subplot(121)
-plt.plot(quant_result_moments["t"], quant_result_moments["quantile_0.5"], label = r"Median")
-plt.fill_between(quant_result_moments["t"],quant_result_moments["quantile_0.1"], quant_result_moments["quantile_0.9"], color='cornflowerblue', alpha=0.2, label= r"$10$th and $90$th percentiles")
-plt.fill_between(quant_result_moments["t"],quant_result_moments["quantile_0.25"], quant_result_moments["quantile_0.75"], color='cornflowerblue', alpha=0.6, label= r"$25$th and $75$th percentiles")
-plt.title(r"Euler residuals squared ($\varepsilon^2$) with $\phi($Moments$)$")
-plt.xlabel(r"Time($t$)")
-ax_moments.set_yscale('log')
-plt.legend(prop={"size": fontsize}, loc='lower right')
-plt.tight_layout()
-
-ax_deep = plt.subplot(122, sharey=ax_moments)
-plt.plot(quant_result_deep["t"], quant_result_deep["quantile_0.5"], label = r"Median")
-plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.1"], quant_result_deep["quantile_0.9"], color='cornflowerblue', alpha=0.2, label= r"$10$th and $90$th percentiles")
-plt.fill_between(quant_result_deep["t"],quant_result_deep["quantile_0.25"], quant_result_deep["quantile_0.75"], color='cornflowerblue', alpha=0.6, label= r"$25$th and $75$th percentiles")
-plt.title(r"Euler residuals squared ($\varepsilon^2$) with $\phi($ReLU$)$")
-plt.xlabel(r"Time($t$)")
-plt.legend(prop={"size": fontsize}, loc='upper right')
-plt.tight_layout()
-
-plt.savefig(output_path)
+#plt.savefig(output_path)
