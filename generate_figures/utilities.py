@@ -66,3 +66,46 @@ def get_results_by_tag(
         df = pd.concat([df, run_data], ignore_index=True)
 
     return df
+
+def df_to_latex(df):
+    formatters=[]
+
+    potential_cols = {
+    "success": {'name': r"\shortstack{Success \\(\%)}", 'format': "{:0.0f}\%".format},
+    "train_time": {'name': r"\shortstack{Time \\ (s)}", 'format': "{:0.0f}".format},
+    "trainable_parameters": {'name': r"\shortstack{Parameters \\ (Thousands, K)}", 'format': "{:.1f}".format},
+    "train_loss": {'name': r"\shortstack{Train MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
+    "val_loss": {'name': r"\shortstack{Val MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
+    "test_loss": {'name': r"\shortstack{Test MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
+    "test_u_rel_error": {'name': r"\shortstack{Policy Error\\ ($\epsilon_{\mathrm{rel}}$)}", 'format': "{:.2f}\%".format},
+    "retcode = 0": {'name': r"\shortstack{Success \\(\%)}", 'format': "{:0.0f}\%".format},
+    "retcode = -2": {'name': r"\shortstack{Violation of transversality\\ (\%)}", 'format': "{:0.0f}\%".format},
+    "retcode = -1": {'name': r"\shortstack{Early stopping failure \\ (\%)}", 'format': "{:0.0f}\%".format},
+    "retcode = -3": {'name': r"\shortstack{Overfitting \\ (\%)}", 'format': "{:0.0f}\%".format},
+    }
+    if isinstance(df.index, pd.MultiIndex):
+        column_format = 'll'
+    else: column_format= 'l'
+    
+
+    for col in df.columns:
+        if col in potential_cols.keys():
+            column_format += 'c'  # to center the columns contents
+            df = df.rename(columns={col: potential_cols[col]['name']})
+            formatters.append(potential_cols[col]['format'])
+        else:
+            df = df.drop(columns=[col])
+    
+    latex_str = df.to_latex(
+        multicolumn=True,
+        multirow=True,
+        formatters=formatters,
+        longtable=False,
+        sparsify=True,
+        escape=False,
+        column_format= column_format,
+    )
+    return latex_str
+        
+
+
