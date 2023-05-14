@@ -85,12 +85,12 @@ def df_to_latex(df):
     }
     if isinstance(df.index, pd.MultiIndex):
         column_format = 'll'
-    else: column_format= 'l'
+    else: column_format= 'c' #I like number columb centered could also make l 
     
 
     for col in df.columns:
         if col in potential_cols.keys():
-            column_format += 'c'  # to center the columns contents
+            column_format += 'c'  # center the columns contents depending on number of columns
             df = df.rename(columns={col: potential_cols[col]['name']})
             formatters.append(potential_cols[col]['format'])
         else:
@@ -104,7 +104,11 @@ def df_to_latex(df):
         sparsify=True,
         escape=False,
         column_format= column_format,
+        na_rep = '-'
     )
+    if isinstance(df.index, pd.MultiIndex):
+        latex_str = latex_str.replace('\\bottomrule\n', '') #removes double line when multi-index 
+
     return latex_str
         
 
