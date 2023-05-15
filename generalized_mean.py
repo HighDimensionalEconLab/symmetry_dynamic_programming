@@ -56,7 +56,7 @@ class GeneralizedMean(pl.LightningModule):
         x, y = batch
         y = y.unsqueeze(1)  # to enable broadcasting of self(x)
         loss = F.mse_loss(self(x), y, reduction="mean")
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -108,7 +108,7 @@ class GeneralizedMean(pl.LightningModule):
             )
             if self.hparams.X_distribution == "normal":
                 X[i] = torch.normal(
-                    a_i,
+                    a_i.squeeze(0),
                     self.hparams.std,
                     size=(self.hparams.N,),
                     device=self.device,

@@ -63,7 +63,7 @@ model:
   a_min: 1.0
   a_max: 2.0
   std: 0.2 # want to make sure it isn't too small or else it is too easy of a problem
-  X_distribution: uniform # uniform or normal
+  X_distribution: normal # uniform or normal
   N: 256 # 32 # dimensionality of the state
   p: 1.5
 
@@ -84,7 +84,7 @@ model:
   batch_size: 32
   shuffle_training: true
   test_loss_success_threshold: 1e-4 # typically failures of overfitting are far above this
-  early_stopping_success_threshold: 1e-6 # 0.0 # by default should be zero, but sometimes there are bugs in PL early stopping, especially with train_loss?
+  early_stopping_success_threshold: 1.5e-6 # 0.0 # by default should be zero, but sometimes there are bugs in PL early stopping, especially with train_loss?
   
   ## Invariance with NN
   ml_model:
