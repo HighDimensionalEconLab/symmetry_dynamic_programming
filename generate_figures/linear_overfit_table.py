@@ -2,7 +2,7 @@ import pandas as pd
 import wandb
 from utilities import df_to_latex, get_results_by_tag
 
-output_dir = "../figures"
+output_dir = "./figures"
 api = wandb.Api()
 project = "highdimensionaleconlab/symmetry_dynamic_programming"
 

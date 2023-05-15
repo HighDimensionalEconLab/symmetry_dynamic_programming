@@ -36,6 +36,6 @@ plt.legend(prop={"size": params["font.size"]}, loc="lower right")
 plt.title(r"$u(X_t)$ with $\phi($ReLU$)$: Equilibrium Path")
 plt.xlabel(r"Time(t)")
 plt.tight_layout()
-plt.show()
-# plt.savefig(output_path)
-# plt.clf()
+
+plt.savefig(output_path)
+

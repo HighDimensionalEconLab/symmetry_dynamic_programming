@@ -58,6 +58,4 @@ for n, tag in enumerate(tags):
     plt.legend(prop={"size": params["font.size"]}, loc="lower right")
     plt.tight_layout()
 
-plt.show()
-
-# plt.savefig(output_path)
+plt.savefig(output_path)

@@ -57,6 +57,5 @@ for n, tag in enumerate(tags):
     plt.xlabel(r"Time($t$)")
     plt.legend(prop={"size": params["font.size"]}, loc="lower left")
     plt.tight_layout()
-plt.show()
 
-# plt.savefig(output_path)
+plt.savefig(output_path)

@@ -71,5 +71,5 @@ for n, vals in plot_dict.items():
     plt.xlabel(r"N")
     plt.legend(prop={"size": params["font.size"]}, loc=vals["loc"])
     plt.tight_layout()
-plt.show()
-# plt.savefig(output_path)
+
+plt.savefig(output_path)

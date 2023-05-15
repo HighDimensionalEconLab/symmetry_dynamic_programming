@@ -61,5 +61,4 @@ plt.yticks(fontsize=5)
 mark_inset(ax, axins, loc1=2, loc2=4, linewidth="0.7", ls="--", ec="0.5")
 plt.show()
 
-# plt.savefig(output_path)
-# plt.clf()
+plt.savefig(output_path)
