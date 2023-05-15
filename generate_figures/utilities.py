@@ -1,8 +1,6 @@
 import pandas as pd
-import wandb
 
-
-def plot_params(figsize, fontsize, ticksize):
+def plot_params(figsize, fontsize=10, ticksize=14):
     params = {
         "text.usetex": True,
         "font.family": "serif",
@@ -70,3 +68,50 @@ def get_results_by_tag(
         df = pd.concat([df, run_data], ignore_index=True)
 
     return df
+
+def df_to_latex(df):
+    formatters=[]
+
+    potential_cols = {
+    "success": {'name': r"\shortstack{Success \\(\%)}", 'format': "{:0.0f}\%".format},
+    "train_time": {'name': r"\shortstack{Time \\ (s)}", 'format': "{:0.0f}".format},
+    "trainable_parameters": {'name': r"\shortstack{Parameters \\ (Thousands, K)}", 'format': "{:.1f}".format},
+    "train_loss": {'name': r"\shortstack{Train MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
+    "val_loss": {'name': r"\shortstack{Val MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
+    "test_loss": {'name': r"\shortstack{Test MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
+    "test_u_rel_error": {'name': r"\shortstack{Policy Error\\ ($\epsilon_{\mathrm{rel}}$)}", 'format': "{:.2f}\%".format},
+    "retcode = 0": {'name': r"\shortstack{Success \\(\%)}", 'format': "{:0.0f}\%".format},
+    "retcode = -2": {'name': r"\shortstack{Violation of transversality\\ (\%)}", 'format': "{:0.0f}\%".format},
+    "retcode = -1": {'name': r"\shortstack{Early stopping failure \\ (\%)}", 'format': "{:0.0f}\%".format},
+    "retcode = -3": {'name': r"\shortstack{Overfitting \\ (\%)}", 'format': "{:0.0f}\%".format},
+    }
+    if isinstance(df.index, pd.MultiIndex):
+        column_format = 'll'
+    else: column_format= 'c' #I like number columb centered could also make l 
+    
+
+    for col in df.columns:
+        if col in potential_cols.keys():
+            column_format += 'c'  # center the columns contents depending on number of columns
+            df = df.rename(columns={col: potential_cols[col]['name']})
+            formatters.append(potential_cols[col]['format'])
+        else:
+            df = df.drop(columns=[col])
+    
+    latex_str = df.to_latex(
+        multicolumn=True,
+        multirow=True,
+        formatters=formatters,
+        longtable=False,
+        sparsify=True,
+        escape=False,
+        column_format= column_format,
+        na_rep = '-'
+    )
+    if isinstance(df.index, pd.MultiIndex):
+        latex_str = latex_str.replace('\\bottomrule\n', '') #removes double line when multi-index 
+
+    return latex_str
+        
+
+

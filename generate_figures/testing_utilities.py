@@ -5,6 +5,7 @@ from utilities import get_results_by_tag
 api = wandb.Api()
 project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
+
 df = get_results_by_tag(api, project,"deep_sets_nonlinear_nu_150_one_run")
 assert(df.id.nunique() == 1) # i.e, one run
 assert(df.retcode[0] == 0) # access the retcode of the first row, which is the only one here
