@@ -6,6 +6,8 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 from utilities import get_results_by_tag, plot_params
 
 params = plot_params((6, 3.5))
+plt.rcParams.update(params)
+
 
 output_dir = "./figures"
 plot_name = "deep-sets-nonlinear-var-nu"
