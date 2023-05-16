@@ -6,6 +6,7 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 from utilities import get_results_by_tag, plot_params
 
 params = plot_params((8, 3.5))
+plt.rcParams.update(params)
 
 output_dir = "./figures"
 plot_name = "moments-deep-sets-nonlinear-residual"
@@ -35,7 +36,7 @@ for n, tag in enumerate(tags):
     else:
         ax = plt.subplot(120 + n + 1, sharey=ax_identity)
 
-    plt.rcParams.update(params)
+ 
     plt.plot(quant_result["t"], quant_result["quantile_0.5"], label=r"Median")
     plt.fill_between(
         quant_result["t"],
