@@ -20,8 +20,8 @@ quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
 tags = ["baseline_nonlinear_deep_moments", "baseline_nonlinear_deep_sets"]
 title_names = ["Moments", "ReLU"]
 for n, tag in enumerate(tags):
-    df = get_results_by_tag(api, project, tag, get_test_results=True, max_runs=5)
-    # assert(df.id.nunique() == 100)
+    df = get_results_by_tag(api, project, tag, get_test_results=True)
+    assert(df.id.nunique() == 100)
     df = df[df["retcode"] >= 0]
     df["residual_squared"] = df["residual"] ** 2
     quant_result = df.groupby("t")["residual_squared"].quantile(quantiles).unstack(level=-1)

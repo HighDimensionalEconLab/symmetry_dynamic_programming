@@ -7,7 +7,6 @@ output_dir = "./figures"
 api = wandb.Api()
 project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
-# what do I call this?
 networks = {
     "Identity": {"Baseline": "baseline_identity"},
     "Moments": {"Baseline": "baseline_deep_moments"},

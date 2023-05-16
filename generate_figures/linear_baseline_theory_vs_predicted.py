@@ -6,9 +6,6 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
 from utilities import get_results_by_tag, plot_params
 
-fontsize = 10
-ticksize = 14
-figsize = (6, 3.5)
 params = plot_params(((6, 3.5)))
 
 output_dir = "./figures"
