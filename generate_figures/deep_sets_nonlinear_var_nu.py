@@ -17,7 +17,6 @@ api = wandb.Api()
 project = "highdimensionaleconlab/symmetry_dynamic_programming"
 
 fig, ax = plt.subplots()
-plt.rcParams.update(params)
 
 # looping through the runs with nu variations
 nu = {
