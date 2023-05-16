@@ -23,7 +23,7 @@ df_deep = df_deep[df_deep["retcode"] == 0]
 plot_dict = {
     "train_time": {
         "ticks_x": [50, 100, 1000, 10000, 100000],
-        "ticks_y": [20, 100],
+        "ticks_y": [ 20,40,60,80,100,120],
         "title": r"Computation time (seconds)",
         "loc": "upper left",
         "subplot": 121,
