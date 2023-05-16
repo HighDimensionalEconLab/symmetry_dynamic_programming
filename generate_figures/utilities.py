@@ -108,9 +108,9 @@ def df_to_latex(df):
         column_format= column_format,
         na_rep = '-'
     )
-    if isinstance(df.index, pd.MultiIndex):
-        latex_str = latex_str.replace('\\bottomrule\n', '') #removes double line when multi-index 
-
+    #if isinstance(df.index, pd.MultiIndex):
+    #    latex_str = latex_str.replace('\\bottomrule\n', '') #removes double line when multi-index 
+ 
     return latex_str
         
 
