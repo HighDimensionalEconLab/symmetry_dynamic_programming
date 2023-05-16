@@ -39,6 +39,7 @@ trainer:
         check_finite: true
         divergence_threshold: 1e5 # stops if larger
         stopping_threshold: 1.0e-6   # If using val_rel_error then order of magnitude 0.05 or so
+        # verbose: true
 optimizer:
   class_path: torch.optim.Adam
   init_args:
@@ -83,8 +84,7 @@ model:
   num_test_points: 200
   batch_size: 32
   shuffle_training: true
-  test_loss_success_threshold: 1e-4 # typically failures of overfitting are far above this
-  early_stopping_success_threshold: 1.5e-6 # 0.0 # by default should be zero, but sometimes there are bugs in PL early stopping, especially with train_loss?
+  test_loss_success_threshold: 0.0 # 1e-4
   
   ## Invariance with NN
   ml_model:

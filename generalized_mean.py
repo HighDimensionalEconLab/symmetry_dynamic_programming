@@ -34,7 +34,6 @@ class GeneralizedMean(pl.LightningModule):
         test_seed: int,
         train_data_seed: int,
         test_loss_success_threshold: float,
-        early_stopping_success_threshold: float,
         # parameters for method
         num_train_points: int,
         num_val_points: int,
@@ -187,7 +186,7 @@ class GeneralizedMean(pl.LightningModule):
             else len(self.test_data),
         )
 
-def log_and_save(trainer, model, train_time):
+def log_and_save(trainer, model, train_time, train_callback_metrics):
     if type(trainer.logger) is WandbLogger:
         # Valid numeric types
         def not_number_type(value):
@@ -209,13 +208,10 @@ def log_and_save(trainer, model, train_time):
         for callback in trainer.callbacks:
             if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
                 early_stopping_monitor = callback.monitor
+                early_stopping_value = train_callback_metrics[callback.monitor].cpu().numpy().tolist()
                 early_stopping_threshold = callback.stopping_threshold
-                early_stopping_check_failed = not_number_type(
-                    cli.trainer.logger.experiment.summary[callback.monitor]
-                ) or (
-                    cli.trainer.logger.experiment.summary[callback.monitor] - model.hparams.early_stopping_success_threshold # enable buffer to fix weird early stopping bugs
-                    > callback.stopping_threshold
-                )
+                early_stopping_check_failed = not_number_type(early_stopping_value
+                ) or (early_stopping_value > callback.stopping_threshold)  # hardcoded to min for now.
                 break
 
         # Check test loss
@@ -303,7 +299,8 @@ if __name__ == "__main__":
     start = timeit.default_timer()
     cli.trainer.fit(cli.model)
     train_time = timeit.default_timer() - start
+    train_callback_metrics = cli.trainer.callback_metrics
     cli.trainer.test(cli.model)
 
     # Add additional calculations such as HPO objective to the log and save files
-    log_and_save(cli.trainer, cli.model, train_time)
+    log_and_save(cli.trainer, cli.model, train_time, train_callback_metrics)
