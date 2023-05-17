@@ -1,11 +1,11 @@
 program: generalized_mean.py
 project: generalized_mean_examples
-name: gen_mean_no_deep_sets_L_N
+name: gen_mean_deep_sets_L_N
 description: Generalized mean with deep sets for N and L and 100 seeds
 method: grid
 parameters:
   trainer.logger.tags:
-    value: [gen_mean_no_deep_sets_L_N]
+    value: [gen_mean_deep_sets_L_N]
   seed:
     min: 1
     max: 100 # number of ensembles to solve
