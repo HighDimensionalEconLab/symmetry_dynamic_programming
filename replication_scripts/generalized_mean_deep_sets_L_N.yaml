@@ -8,15 +8,15 @@ parameters:
     value: [generalized_mean_deep_sets_L_N]
   seed:
     min: 123
-    max: 143 # 100 # number of seeds
+    max: 128 # 123 + 100 # number of seeds
   trainer.max_epochs:
-    value: 1000
+    value: 5000
   trainer.min_epochs:
     value: 0
   trainer.logger.offline:
     value: false # log online for W&B optimization
   trainer.max_time:
-    value: 00:00:05:00
+    value: 00:00:03:00
   model.p:
     value: 1.5 # the generalized mean power
   model.a_max:
@@ -30,11 +30,11 @@ parameters:
   model.num_test_points:
     value: 200
   trainer.callbacks.stopping_threshold: #stop if train_loss< callbacks.stopping_threshold
-    value: 1e-6
+    value: 1e-5 # TODO: make smaller for full table
   trainer.callbacks.monitor:
     value: train_loss
   optimizer.lr:
-    value: 0.001
+    value: 0.005
   model.ml_model.L:
     values: [1,2,4,8,16]
   model.N:
