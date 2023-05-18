@@ -25,5 +25,26 @@ run_sweep_and_agent () {
   wandb agent $SWEEP_ID
 }
 
-# Table for N vs. L 
+# List of "N" we will use for the no invariance experiments 
+list_of_N="8 16 32"
+
+# Path to the template
+template="replication_scripts/generalized_mean_no_invariance_template.yaml"
+
+# Loop over each N
+for N in $list_of_N; do
+    # Generate the output filename
+    output_file="replication_scripts/generalized_mean_no_invariance_N_${N}.yaml"
+
+    # Use sed to replace all occurrences of NNN with the current N
+    sed "s/NNN/${N}/g" $template > $output_file
+done
+
+# Run all sweeps
+
 run_sweep_and_agent "generalized_mean_deep_sets_L_N"
+
+# Loop over each N for each invariance sweep
+for N in $list_of_N; do
+    run_sweep_and_agent "generalized_mean_no_invariance_N_${N}"
+done
