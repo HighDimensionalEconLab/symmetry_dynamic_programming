@@ -11,7 +11,6 @@ import quantecon
 import econ_layers
 import scipy.optimize
 from torch.utils.data import DataLoader
-from econ_layers.utilities import dict_to_cpu
 from pytorch_lightning.cli import LightningCLI
 from pathlib import Path
 from pytorch_lightning.loggers import WandbLogger
@@ -181,21 +180,19 @@ class InvestmentEuler(pl.LightningModule):
                 [
                     self.test_results,
                     pd.DataFrame(
-                        dict_to_cpu(
-                            {
-                                "t": batch["t"],
-                                "ensemble": batch["ensemble"],
-                                "u_hat": u_X,
-                                "residual": residuals,
-                                "u_reference": u_linear,
-                                "u_rel_error": u_rel_error,
-                                "u_abs_error": u_abs_error,
-                                "X_min": batch["X_min"],
-                                "X_max": batch["X_max"],
-                                "X_mean": batch["X_mean"],
-                                "X_std": batch["X_std"],
-                            }
-                        )
+                        {
+                            "t": batch["t"].squeeze().cpu().numpy().tolist(),
+                            "ensemble": batch["ensemble"].squeeze().cpu().numpy().tolist(),
+                            "u_hat": u_X.squeeze().cpu().numpy().tolist(),
+                            "residual": residuals.squeeze().cpu().numpy().tolist(),
+                            "u_reference": u_linear.squeeze().cpu().numpy().tolist(),
+                            "u_rel_error": u_rel_error.squeeze().cpu().numpy().tolist(),
+                            "u_abs_error": u_abs_error.squeeze().cpu().numpy().tolist(),
+                            "X_min": batch["X_min"].squeeze().cpu().numpy().tolist(),
+                            "X_max": batch["X_max"].squeeze().cpu().numpy().tolist(),
+                            "X_mean": batch["X_mean"].squeeze().cpu().numpy().tolist(),
+                            "X_std": batch["X_std"].squeeze().cpu().numpy().tolist(),
+                        }
                     ),
                 ]
             )
@@ -207,18 +204,16 @@ class InvestmentEuler(pl.LightningModule):
                 [
                     self.test_results,
                     pd.DataFrame(
-                        dict_to_cpu(
-                            {
-                                "t": batch["t"],
-                                "ensemble": batch["ensemble"],
-                                "u_hat": u_X,
-                                "residual": residuals,
-                                "X_min": batch["X_min"],
-                                "X_max": batch["X_max"],
-                                "X_mean": batch["X_mean"],
-                                "X_std": batch["X_std"],
-                            }
-                        )
+                        {
+                            "t": batch["t"].squeeze().cpu().numpy().tolist(),
+                            "ensemble": batch["ensemble"].squeeze().cpu().numpy().tolist(),
+                            "u_hat": u_X.squeeze().cpu().numpy().tolist(),
+                            "residual": residuals.squeeze().cpu().numpy().tolist(),
+                            "X_min": batch["X_min"].squeeze().cpu().numpy().tolist(),
+                            "X_max": batch["X_max"].squeeze().cpu().numpy().tolist(),
+                            "X_mean": batch["X_mean"].squeeze().cpu().numpy().tolist(),
+                            "X_std": batch["X_std"].squeeze().cpu().numpy().tolist(),
+                        }
                     ),
                 ]
             )
@@ -333,7 +328,6 @@ class InvestmentEuler(pl.LightningModule):
             self.register_buffer("train_data", train_data)
 
         if stage == "test":
-
             # Initial conditions and vectors for shocks are identical to those in the first stages
 
             # If provided, create a new RNG for reproducibility of the test shocks
@@ -400,7 +394,7 @@ class InvestmentEuler(pl.LightningModule):
             self.val_data = self.simulate(self.X_0, self.hparams.val_trajectories)
 
 
-def log_and_save(trainer, model, train_time):
+def log_and_save(trainer, model, train_time, train_callback_metrics):
     if type(trainer.logger) is WandbLogger:
         # Valid numeric types
         def not_number_type(value):
@@ -422,13 +416,10 @@ def log_and_save(trainer, model, train_time):
         for callback in trainer.callbacks:
             if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
                 early_stopping_monitor = callback.monitor
+                early_stopping_value = train_callback_metrics[callback.monitor].cpu().numpy().tolist()
                 early_stopping_threshold = callback.stopping_threshold
-                early_stopping_check_failed = not_number_type(
-                    cli.trainer.logger.experiment.summary[callback.monitor]
-                ) or (
-                    cli.trainer.logger.experiment.summary[callback.monitor]
-                    > callback.stopping_threshold
-                )
+                early_stopping_check_failed = not_number_type(early_stopping_value
+                ) or (early_stopping_value > callback.stopping_threshold)  # hardcoded to min for now.
                 break
 
         # Check transversality
@@ -555,7 +546,8 @@ if __name__ == "__main__":
     start = timeit.default_timer()
     cli.trainer.fit(cli.model)
     train_time = timeit.default_timer() - start
+    train_callback_metrics = cli.trainer.callback_metrics
     cli.trainer.test(cli.model)
 
     # Add additional calculations such as HPO objective to the log and save files
-    log_and_save(cli.trainer, cli.model, train_time)
+    log_and_save(cli.trainer, cli.model, train_time, train_callback_metrics)
