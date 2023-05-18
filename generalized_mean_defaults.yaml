@@ -94,8 +94,8 @@ model:
       n_out: 1
       L: 2
 
-      phi_layers: 1
-      phi_hidden_dim: 256
+      phi_layers: 2
+      phi_hidden_dim: 128
       phi_hidden_bias: true
       phi_last_bias: true
       phi_activator:
