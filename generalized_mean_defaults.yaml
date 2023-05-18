@@ -61,8 +61,8 @@ optimizer:
 
 model:
   # Model parameters
-  a_min: 2.0  # If this is too tight of an interval and std is too large then there may be draws where it is undefined due to negatives
-  a_max: 4.0
+  a_min: 1.0  # If this is too tight of an interval and std is too large then there may be draws where it is undefined due to negatives
+  a_max: 3.0
   std: 0.3 # want to make sure it isn't too small or else it is too easy of a problem
   X_distribution: normal # uniform or normal
   N: 256 # 32 # dimensionality of the state

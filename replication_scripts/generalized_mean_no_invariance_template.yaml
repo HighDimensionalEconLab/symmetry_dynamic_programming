@@ -20,11 +20,13 @@ parameters:
   model.num_train_points:
     value: 10
   model.num_val_points:
-    value: 0
+    value: 10
   model.num_test_points:
     value: 200
   trainer.callbacks.stopping_threshold: #stop if train_loss< callbacks.stopping_threshold
     value: 1e-5 # TODO: make smaller for full table
+  trainer.test_loss_success_threshold:
+    value: 1e-3 # Very rough, mostly to have a flag if things blow up.
   trainer.callbacks.monitor:
     value: train_loss
   optimizer.lr:
