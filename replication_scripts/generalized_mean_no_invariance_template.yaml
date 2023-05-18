@@ -3,9 +3,9 @@ project: generalized_mean_examples
 name: generalized_mean_no_invariance_N_NNN
 description: Generalized mean without using invariances and with multiple seeds
 method: grid
-parameters:
+parameters: 
   trainer.logger.tags:
-    value: [generalized_mean_no_invariance_NNN]
+    value: [generalized_mean_no_invariance_N_NNN]
   seed:
     min: 123
     max: 133 # 123 + 100 # number of seeds
@@ -25,7 +25,7 @@ parameters:
     value: 200
   trainer.callbacks.stopping_threshold: #stop if train_loss< callbacks.stopping_threshold
     value: 1e-5 # TODO: make smaller for full table
-  trainer.test_loss_success_threshold:
+  model.test_loss_success_threshold:
     value: 1e-3 # Very rough, mostly to have a flag if things blow up.
   trainer.callbacks.monitor:
     value: train_loss
