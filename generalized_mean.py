@@ -114,6 +114,7 @@ class GeneralizedMean(pl.LightningModule):
                     dtype=self.dtype,
                     generator=generator,
                 )
+                X[i] = X[i].abs() # This will almost never happen for a_i in reasonable range.  Otherwise use truncated normal
             elif self.hparams.X_distribution == "uniform":
                 d = self.hparams.std * math.sqrt(3)  # ensures std is correct
                 X[i] = (

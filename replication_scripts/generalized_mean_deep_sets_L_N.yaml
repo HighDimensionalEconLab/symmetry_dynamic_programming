@@ -17,12 +17,6 @@ parameters:
     value: false # log online for W&B optimization
   trainer.max_time:
     value: 00:00:03:00
-  model.p:
-    value: 1.5 # the generalized mean power
-  model.a_max:
-    value: 2.0
-  model.std:
-    value: 0.4 # too low and the problem is too easy    
   model.num_train_points:
     value: 10
   model.num_val_points:

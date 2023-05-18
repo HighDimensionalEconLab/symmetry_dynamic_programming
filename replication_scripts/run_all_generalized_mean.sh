@@ -26,7 +26,7 @@ run_sweep_and_agent () {
 }
 
 # List of "N" we will use for the no invariance experiments 
-list_of_N="8 16 32"
+list_of_N="2 4 8 32 64 512 1024"
 
 # Path to the template
 template="replication_scripts/generalized_mean_no_invariance_template.yaml"
@@ -42,7 +42,7 @@ done
 
 # Run all sweeps
 
-run_sweep_and_agent "generalized_mean_deep_sets_L_N"
+# run_sweep_and_agent "generalized_mean_deep_sets_L_N"
 
 # Loop over each N for each invariance sweep
 for N in $list_of_N; do
