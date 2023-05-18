@@ -8,7 +8,7 @@ parameters:
     value: [generalized_mean_no_invariance_N_NNN]
   seed:
     min: 123
-    max: 133 # 123 + 100 # number of seeds
+    max: 223 # 123 + 100 # number of seeds
   trainer.max_epochs:
     value: 5000
   trainer.min_epochs:
@@ -26,7 +26,7 @@ parameters:
   trainer.callbacks.stopping_threshold: #stop if train_loss< callbacks.stopping_threshold
     value: 1e-5 # TODO: make smaller for full table
   model.test_loss_success_threshold:
-    value: 1e-3 # Very rough, mostly to have a flag if things blow up.
+    value: 0
   trainer.callbacks.monitor:
     value: train_loss
   optimizer.lr:
