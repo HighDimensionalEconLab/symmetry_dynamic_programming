@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def plot_params(figsize, fontsize=10, ticksize=14):
     params = {
         "text.usetex": True,
@@ -32,7 +33,6 @@ def get_results_by_tag(
         "trainer.logger.tags",
     ],
 ):
-
     runs = api.runs(project, filters={"tags": tag})
     df = pd.DataFrame()  # will concatenate
 
@@ -69,42 +69,71 @@ def get_results_by_tag(
 
     return df
 
+
 def df_to_latex(df):
-    formatters=[]
+    formatters = []
 
     potential_cols = {
-    "success": {'name': r"\shortstack{Success \\(\%)}", 'format': "{:0.0f}\%".format},
-    "train_time": {'name': r"\shortstack{Time \\ (s)}", 'format': "{:0.0f}".format},
-    "trainable_parameters": {'name': r"\shortstack{Parameters \\ (Thousands, K)}", 'format': "{:.1f}".format},
-    "train_loss": {'name': r"\shortstack{Train MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
-    "val_loss": {'name': r"\shortstack{Val MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
-    "test_loss": {'name': r"\shortstack{Test MSE \\ ($\varepsilon$)}", 'format': "{:.1e}".format},
-    "test_u_rel_error": {'name': r"\shortstack{Policy Error\\ ($\epsilon_{\mathrm{rel}}$)}", 'format': "{:.2f}\%".format},
-    "retcode = 0": {'name': r"\shortstack{Success \\(\%)}", 'format': "{:0.0f}\%".format},
-    "retcode = -2": {'name': r"\shortstack{Violation of transversality\\ (\%)}", 'format': "{:0.0f}\%".format},
-    "retcode = -1": {'name': r"\shortstack{Early stopping failure \\ (\%)}", 'format': "{:0.0f}\%".format},
-    "retcode = -3": {'name': r"\shortstack{Overfitting \\ (\%)}", 'format': "{:0.0f}\%".format},
-    1: {'name': r"\shortstack{L = 1}", 'format': "{:.2e}".format},
-    2: {'name': r"\shortstack{L = 2}", 'format': "{:.2e}".format},
-    4: {'name': r"\shortstack{L = 4}", 'format': "{:.2e}".format},
-    8: {'name': r"\shortstack{L = 8}", 'format': "{:.2e}".format},
-    16: {'name': r"\shortstack{L = 16}", 'format': "{:.2e}".format},
-    'no_invariance_rel_error': {'name': r"\shortstack{No Invariance}", 'format': "{:.2e}".format}
-}
+        "success": {"name": r"\shortstack{Success \\(\%)}", "format": "{:0.0f}\%".format},
+        "train_time": {"name": r"\shortstack{Time \\ (s)}", "format": "{:0.0f}".format},
+        "trainable_parameters": {
+            "name": r"\shortstack{Parameters \\ (Thousands, K)}",
+            "format": "{:.1f}".format,
+        },
+        "train_loss": {
+            "name": r"\shortstack{Train MSE \\ ($\varepsilon$)}",
+            "format": "{:.1e}".format,
+        },
+        "val_loss": {"name": r"\shortstack{Val MSE \\ ($\varepsilon$)}", "format": "{:.1e}".format},
+        "test_loss": {
+            "name": r"\shortstack{Test MSE \\ ($\varepsilon$)}",
+            "format": "{:.1e}".format,
+        },
+        "test_u_rel_error": {
+            "name": r"\shortstack{Policy Error\\ ($\epsilon_{\mathrm{rel}}$)}",
+            "format": "{:.2f}\%".format,
+        },
+        "retcode = 0": {"name": r"\shortstack{Success \\(\%)}", "format": "{:0.0f}\%".format},
+        "retcode = -2": {
+            "name": r"\shortstack{Violation of transversality\\ (\%)}",
+            "format": "{:0.0f}\%".format,
+        },
+        "retcode = -1": {
+            "name": r"\shortstack{Early stopping failure \\ (\%)}",
+            "format": "{:0.0f}\%".format,
+        },
+        "retcode = -3": {"name": r"\shortstack{Overfitting \\ (\%)}", "format": "{:0.0f}\%".format},
+        "no_invariance_rel_error": {
+            "name": r"\shortstack{No Invariance}",
+            "format": "{:.2e}".format,
+        },
+        "retcode_success": {"name": r"\shortstack{No Invariance}", "format": "{:0.0f}\%".format},
+    }
+    # adding the columns for success and rel_error table
+    L = [1, 2, 4, 8, 16]
+    for num in L:
+        potential_cols[f"{num}_success"] = {
+            "name": rf"\shortstack{{L = {num}}}", 
+            "format": "{:0.0f}\%".format,
+        }
+        potential_cols[f"{num}_rel_error"] = {
+            "name": rf"\shortstack{{L = {num} }}",
+            "format": "{:.2e}".format,
+        }
 
     if isinstance(df.index, pd.MultiIndex):
-        column_format = 'll'
-    else: column_format= 'c' #I like number columb centered could also make l 
-    
+        column_format = "ll"
+    else:
+        column_format = "c"  # I like number column centered could also make l
 
     for col in df.columns:
         if col in potential_cols.keys():
-            column_format += 'c'  # center the columns contents depending on number of columns
-            df = df.rename(columns={col: potential_cols[col]['name']})
-            formatters.append(potential_cols[col]['format'])
+            column_format += "c"  # center the columns contents depending on number of columns
+            df = df.rename(columns={col: potential_cols[col]["name"]})
+            formatters.append(potential_cols[col]["format"])
         else:
             df = df.drop(columns=[col])
-    
+
     latex_str = df.to_latex(
         multicolumn=True,
         multirow=True,
@@ -112,13 +141,10 @@ def df_to_latex(df):
         longtable=False,
         sparsify=True,
         escape=False,
-        column_format= column_format,
-        na_rep = '-'
+        column_format=column_format,
+        na_rep="-",
     )
-    #if isinstance(df.index, pd.MultiIndex):
-    #    latex_str = latex_str.replace('\\bottomrule\n', '') #removes double line when multi-index 
- 
+    # if isinstance(df.index, pd.MultiIndex):
+    #    latex_str = latex_str.replace('\\bottomrule\n', '') #removes double line when multi-index
+
     return latex_str
-        
-
-
