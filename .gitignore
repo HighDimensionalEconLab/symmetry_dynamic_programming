@@ -144,3 +144,4 @@ generalized_mean_examples
 *.pdf 
 *.json
 *.tex
+generalized_mean_no_invariance_N_*.yaml

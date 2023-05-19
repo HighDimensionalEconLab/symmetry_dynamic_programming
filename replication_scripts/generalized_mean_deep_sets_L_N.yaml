@@ -1,0 +1,37 @@
+program: generalized_mean.py
+project: generalized_mean_examples
+name: generalized_mean_deep_sets_L_N
+description: Generalized mean with deep sets for N and L multiple seeds
+method: grid
+parameters:
+  trainer.logger.tags:
+    value: [generalized_mean_deep_sets_L_N]
+  seed:
+    min: 123
+    max: 223 # 100 + number of seeds
+  trainer.max_epochs:
+    value: 5000
+  trainer.min_epochs:
+    value: 0
+  trainer.logger.offline:
+    value: false # log online for W&B optimization
+  trainer.max_time:
+    value: 00:00:03:00
+  model.num_train_points:
+    value: 10
+  model.num_val_points:
+    value: 0
+  model.num_test_points:
+    value: 200
+  trainer.callbacks.stopping_threshold: #stop if train_loss< callbacks.stopping_threshold
+    value: 1e-5 # TODO: make smaller for full table
+  model.test_loss_success_threshold:
+    value: 0
+  trainer.callbacks.monitor:
+    value: train_loss
+  optimizer.lr:
+    value: 0.005
+  model.ml_model.L:
+    values: [1,2,4,8,16]
+  model.N:
+    values: [2,4,8,32,64,512,1024]

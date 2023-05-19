@@ -61,9 +61,9 @@ optimizer:
 
 model:
   # Model parameters
-  a_min: 1.0
-  a_max: 2.0
-  std: 0.2 # want to make sure it isn't too small or else it is too easy of a problem
+  a_min: 1.0  # If this is too tight of an interval and std is too large then there may be draws where it is undefined due to negatives
+  a_max: 3.0
+  std: 0.3 # want to make sure it isn't too small or else it is too easy of a problem
   X_distribution: normal # uniform or normal
   N: 256 # 32 # dimensionality of the state
   p: 1.5
@@ -94,8 +94,8 @@ model:
       n_out: 1
       L: 2
 
-      phi_layers: 1
-      phi_hidden_dim: 256
+      phi_layers: 2
+      phi_hidden_dim: 128
       phi_hidden_bias: true
       phi_last_bias: true
       phi_activator:
