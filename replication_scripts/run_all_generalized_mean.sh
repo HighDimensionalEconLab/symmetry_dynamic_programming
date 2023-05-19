@@ -42,7 +42,7 @@ done
 
 # Run all sweeps
 
-# run_sweep_and_agent "generalized_mean_deep_sets_L_N"
+run_sweep_and_agent "generalized_mean_deep_sets_L_N"
 
 # Loop over each N for each invariance sweep
 for N in $list_of_N; do

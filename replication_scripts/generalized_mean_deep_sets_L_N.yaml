@@ -8,7 +8,7 @@ parameters:
     value: [generalized_mean_deep_sets_L_N]
   seed:
     min: 123
-    max: 128 # 123 + 100 # number of seeds
+    max: 223 # 100 + number of seeds
   trainer.max_epochs:
     value: 5000
   trainer.min_epochs:
