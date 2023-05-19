@@ -84,7 +84,14 @@ def df_to_latex(df):
     "retcode = -2": {'name': r"\shortstack{Violation of transversality\\ (\%)}", 'format': "{:0.0f}\%".format},
     "retcode = -1": {'name': r"\shortstack{Early stopping failure \\ (\%)}", 'format': "{:0.0f}\%".format},
     "retcode = -3": {'name': r"\shortstack{Overfitting \\ (\%)}", 'format': "{:0.0f}\%".format},
-    }
+    1: {'name': r"\shortstack{L = 1}", 'format': "{:.2e}".format},
+    2: {'name': r"\shortstack{L = 2}", 'format': "{:.2e}".format},
+    4: {'name': r"\shortstack{L = 4}", 'format': "{:.2e}".format},
+    8: {'name': r"\shortstack{L = 8}", 'format': "{:.2e}".format},
+    16: {'name': r"\shortstack{L = 16}", 'format': "{:.2e}".format},
+    'no_invariance_rel_error': {'name': r"\shortstack{No Invariance}", 'format': "{:.2e}".format}
+}
+
     if isinstance(df.index, pd.MultiIndex):
         column_format = 'll'
     else: column_format= 'c' #I like number columb centered could also make l 
