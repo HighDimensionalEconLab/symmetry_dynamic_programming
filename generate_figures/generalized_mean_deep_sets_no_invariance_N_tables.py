@@ -43,6 +43,7 @@ df_deep_sets_rel_error = df.pivot_table(
 
 # success final table
 df_success = pd.merge(df_deep_sets_success, df_no_invariance_success, on="model.N", how="outer")
+df_success.sort_index(inplace=True)
 df_success.rename_axis("N", axis="index", inplace=True)
 df_success.rename(columns=lambda x: f'{x}_success', inplace=True)
   # so our table is formatted right in latex
@@ -52,6 +53,7 @@ df_test_rel_error = pd.merge(
     df_deep_sets_rel_error, df_no_invariance_test_rel_error, on="model.N", how="outer"
 )
 df_test_rel_error.rename_axis("N", axis="index", inplace=True)
+df_test_rel_error.sort_index(inplace=True)
 df_test_rel_error.rename(columns=lambda x: f'{x}_rel_error', inplace=True)
 df_test_rel_error.rename(
     columns={"test_rel_error_rel_error": "no_invariance_rel_error"}, inplace=True
