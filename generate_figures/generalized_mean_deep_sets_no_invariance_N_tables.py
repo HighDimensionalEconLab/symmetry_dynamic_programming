@@ -2,7 +2,7 @@ import pandas as pd
 import wandb
 from utilities import df_to_latex, get_results_by_tag
 
-output_dir = "./figures"
+output_dir = "../figures"
 
 api = wandb.Api()
 project = "highdimensionaleconlab/symmetry_dynamic_programming"
@@ -58,7 +58,7 @@ df_test_rel_error.rename(columns=lambda x: f'{x}_rel_error', inplace=True)
 df_test_rel_error.rename(
     columns={"test_rel_error_rel_error": "no_invariance_rel_error"}, inplace=True
 )  # just to make utilities mapping clearer
-
+df_test_rel_error = df_test_rel_error*100
 with open(output_dir + "/generalized_mean_L_N_rel_error.tex", "w") as file:
     file.write(df_to_latex(df_test_rel_error))
 

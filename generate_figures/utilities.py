@@ -105,7 +105,7 @@ def df_to_latex(df):
         "retcode = -3": {"name": r"\shortstack{Overfitting \\ (\%)}", "format": "{:0.0f}\%".format},
         "no_invariance_rel_error": {
             "name": r"\shortstack{No Invariance}",
-            "format": "{:.2e}".format,
+            "format": "{:.2f}\%".format,
         },
         "retcode_success": {"name": r"\shortstack{No Invariance}", "format": "{:0.0f}\%".format},
     }
@@ -118,7 +118,7 @@ def df_to_latex(df):
         }
         potential_cols[f"{num}_rel_error"] = {
             "name": rf"\shortstack{{L = {num} }}",
-            "format": "{:.2e}".format,
+            "format": "{:.2f}\%".format,
         }
 
     if isinstance(df.index, pd.MultiIndex):
