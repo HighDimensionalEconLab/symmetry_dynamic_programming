@@ -26,7 +26,7 @@ df_no_invariance_success = 100 * (
 df = df[df["retcode"] == 0]
 df_no_invariance_test_rel_error = pd.DataFrame(df.groupby("model.N")["test_rel_error"].median())
 
-df = get_results_by_tag(api, project, "generalized_mean_deep_sets_L_N", get_config=True)
+df = get_results_by_tag(api, project, "generalized_mean_deep_sets_L_N", get_config=True, max_runs = 100000)
 # assert df_deep.id.nunique() == whenver we know how many
 
 # success table deepsets
