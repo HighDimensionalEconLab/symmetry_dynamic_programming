@@ -16,6 +16,7 @@ from pathlib import Path
 from pytorch_lightning.loggers import WandbLogger
 import sys
 
+
 class InvestmentEuler(pl.LightningModule):
     def __init__(
         self,
@@ -161,66 +162,11 @@ class InvestmentEuler(pl.LightningModule):
             u_abs_error = torch.mean(torch.abs(self(X) - u_ref))
             self.log("val_u_abs_error", u_abs_error, prog_bar=True)
 
-    def test_step(self, batch, batch_idx):
-        # Test data includes trajectory number, time, etc.
-        X = batch["X"]
-        residuals = self.model_residuals(X)
-        loss = (residuals**2).sum() / len(residuals)
-        self.log("test_loss", loss, prog_bar=True)
-
-        # Additional logging results
-        if self.hparams.nu == 1:
-            u_linear = self.H_0 + self.H_1 * X.mean(1, keepdim=True)  # closed form if linear
-            u_X = self(X)
-            u_rel_error = torch.abs(u_X - u_linear) / torch.abs(u_linear)
-            u_abs_error = torch.abs(u_X - u_linear)
-            self.test_results = pd.concat(
-                [
-                    self.test_results,
-                    pd.DataFrame(
-                        {
-                            "t": batch["t"].squeeze().cpu().numpy().tolist(),
-                            "ensemble": batch["ensemble"].squeeze().cpu().numpy().tolist(),
-                            "u_hat": u_X.squeeze().cpu().numpy().tolist(),
-                            "residual": residuals.squeeze().cpu().numpy().tolist(),
-                            "u_reference": u_linear.squeeze().cpu().numpy().tolist(),
-                            "u_rel_error": u_rel_error.squeeze().cpu().numpy().tolist(),
-                            "u_abs_error": u_abs_error.squeeze().cpu().numpy().tolist(),
-                            "X_min": batch["X_min"].squeeze().cpu().numpy().tolist(),
-                            "X_max": batch["X_max"].squeeze().cpu().numpy().tolist(),
-                            "X_mean": batch["X_mean"].squeeze().cpu().numpy().tolist(),
-                            "X_std": batch["X_std"].squeeze().cpu().numpy().tolist(),
-                        }
-                    ),
-                ]
-            )
-            self.log("test_u_rel_error", torch.mean(u_rel_error), prog_bar=True)
-            self.log("test_u_abs_error", torch.mean(u_abs_error), prog_bar=True)
-        else:
-            u_X = self(X)
-            self.test_results = pd.concat(
-                [
-                    self.test_results,
-                    pd.DataFrame(
-                        {
-                            "t": batch["t"].squeeze().cpu().numpy().tolist(),
-                            "ensemble": batch["ensemble"].squeeze().cpu().numpy().tolist(),
-                            "u_hat": u_X.squeeze().cpu().numpy().tolist(),
-                            "residual": residuals.squeeze().cpu().numpy().tolist(),
-                            "X_min": batch["X_min"].squeeze().cpu().numpy().tolist(),
-                            "X_max": batch["X_max"].squeeze().cpu().numpy().tolist(),
-                            "X_mean": batch["X_mean"].squeeze().cpu().numpy().tolist(),
-                            "X_std": batch["X_std"].squeeze().cpu().numpy().tolist(),
-                        }
-                    ),
-                ]
-            )
-
     # Data and simulation calculations
     @torch.no_grad()
     def simulate(self, X_0, num_trajectories, f=None, w=None, omega=None, generator=None):
         N = self.hparams.N
-        T = self.hparams.T      
+        T = self.hparams.T
 
         # Simulates random numbers if not provided.
         if f is None:
@@ -260,16 +206,19 @@ class InvestmentEuler(pl.LightningModule):
                 + self.hparams.sigma * w[:, t, :]
                 + self.hparams.eta * omega[:, t]
             )
-        # Associate indices with the data, then return flattened version
-        i_indices, t_indices = torch.meshgrid(torch.arange(N), torch.arange(T), indexing='ij')
+        data_flat = data.flatten(start_dim=0, end_dim=1)
+        # Associate indices with the data, same order as flatten above
+        ensemble_indices, t_indices = torch.meshgrid(
+            torch.arange(num_trajectories), torch.arange(T + 1), indexing="ij"
+        )
 
-        return data.flatten(start_dim=0, end_dim=1), i_indices.flatten(), t_indices.flatten()
+        return data_flat, ensemble_indices.flatten(), t_indices.flatten()
 
     # Setup data/etc.  Supposed to be in setup instead of the __init__
     def setup(self, stage):
         N = self.hparams.N
-        T = self.hparams.T        
-        
+        T = self.hparams.T
+
         # Solves the LQ problem to find the comparison for the nu=1 case and generating simulations
         self.H_0, self.H_1 = self.investment_equilibrium_LQ()  # 1 firm is enough for
 
@@ -286,9 +235,7 @@ class InvestmentEuler(pl.LightningModule):
             generator = None  # otherwise use default RNG
 
         # Monte Carlo draw for the expectations, possibly normalizing it
-        vec = torch.randn(
-            1, N, device=self.device, dtype=self.dtype, generator=generator
-        )
+        vec = torch.randn(1, N, device=self.device, dtype=self.dtype, generator=generator)
         expectation_shock_vector = (
             (vec - vec.mean()) / vec.std() if self.hparams.normalize_shock_vector else vec
         )
@@ -353,6 +300,7 @@ class InvestmentEuler(pl.LightningModule):
             if self.hparams.batch_size > 0
             else len(self.val_data),
         )
+
     # Reset simulation of training and validation data
     def on_train_epoch_end(self):
         # generates trajectories with current policy, regardless of nu
@@ -379,19 +327,46 @@ class InvestmentEuler(pl.LightningModule):
             generator = None  # otherwise use default RNG
 
         # Note that this simulates with the built-in forward function itself, not the linear
-        test_data, i_indices, t_indices = self.simulate(self.X_0, self.hparams.test_trajectories, generator=generator)
+        X, ensemble, t = self.simulate(
+            self.X_0, self.hparams.test_trajectories, generator=generator
+        )
 
         # Calculate some reductions over the X dimension
-        X_min = test_data.min(dim=1)[0]
-        X_max = test_data.max(dim=1)[0]
-        X_mean = test_data.mean(dim=1)
-        X_std = test_data.std(dim=1)
-        residuals = self.model_residuals(test_data).squeeze()
+        u_hat = self(X).squeeze()  # policy
+        residuals = self.model_residuals(X).squeeze()
         loss = residuals.square().mean()
+        self.logger.experiment.log({"test_loss": loss})
 
-        # closed form if linear
-        u_linear = self.H_0 + self.H_1 * X.mean(1, keepdim=True)
-        # TODO!!!!!!!!!!!!!
+        X_min = X.min(dim=1)[0]
+        X_max = X.max(dim=1)[0]
+        X_mean = X.mean(dim=1)
+        X_std = X.std(dim=1)
+
+        self.test_results = pd.DataFrame(
+            {
+                "ensemble": ensemble.squeeze().cpu().numpy().tolist(),
+                "t": t.squeeze().cpu().numpy().tolist(),
+                "u_hat": u_hat.squeeze().cpu().numpy().tolist(),
+                "residual": residuals.squeeze().cpu().numpy().tolist(),
+                "X_min": X_min.squeeze().cpu().numpy().tolist(),
+                "X_max": X_max.squeeze().cpu().numpy().tolist(),
+                "X_mean": X_mean.squeeze().cpu().numpy().tolist(),
+                "X_std": X_std.squeeze().cpu().numpy().tolist(),
+            }
+        )
+
+        if self.hparams.nu == 1:
+            # closed form if linear
+            u_linear = self.H_0 + self.H_1 * X.mean(1, keepdim=True).squeeze()
+            u_rel_error = torch.abs(u_hat - u_linear) / torch.abs(u_linear)
+            u_abs_error = torch.abs(u_hat - u_linear)
+            self.test_results["u_reference"] = u_linear.squeeze().cpu().numpy().tolist()
+            self.test_results["u_rel_error"] = u_rel_error.squeeze().cpu().numpy().tolist()
+            self.test_results["u_abs_error"] = u_abs_error.squeeze().cpu().numpy().tolist()
+            self.logger.experiment.log(
+                {"test_u_rel_error": u_rel_error, "test_u_abs_error": u_abs_error}
+            )
+
 
 def log_and_save(trainer, model, train_time, train_callback_metrics):
     if type(trainer.logger) is WandbLogger:
@@ -415,10 +390,13 @@ def log_and_save(trainer, model, train_time, train_callback_metrics):
         for callback in trainer.callbacks:
             if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
                 early_stopping_monitor = callback.monitor
-                early_stopping_value = train_callback_metrics[callback.monitor].cpu().numpy().tolist()
+                early_stopping_value = (
+                    train_callback_metrics[callback.monitor].cpu().numpy().tolist()
+                )
                 early_stopping_threshold = callback.stopping_threshold
-                early_stopping_check_failed = not_number_type(early_stopping_value
-                ) or (early_stopping_value > callback.stopping_threshold)  # hardcoded to min for now.
+                early_stopping_check_failed = not_number_type(early_stopping_value) or (
+                    early_stopping_value > callback.stopping_threshold
+                )  # hardcoded to min for now.
                 break
 
         # Check transversality
@@ -546,8 +524,8 @@ if __name__ == "__main__":
     cli.trainer.fit(cli.model)
     train_time = timeit.default_timer() - start
     train_callback_metrics = cli.trainer.callback_metrics
-    cli.model.eval() # Enter evaluation mode, not training 
-    cli.model.test_model() # easier to write a manual test function than to use the trainer.test() here
+    cli.model.eval()  # Enter evaluation mode, not training
+    cli.model.test_model()  # easier to write a manual test function than to use the trainer.test() here
 
     # Add additional calculations such as HPO objective to the log and save files
     log_and_save(cli.trainer, cli.model, train_time, train_callback_metrics)
