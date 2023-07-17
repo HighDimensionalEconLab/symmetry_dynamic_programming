@@ -123,16 +123,4 @@ model:
 
   # Can also change on CLI such as
  #python investment_euler.py --model.ml_model.class_path=econ_layers.layers.DeepSetMoments --model.ml_model.L=4 --model.ml_model.n_in=1 --model.ml_model.n_out=1 --model.ml_model.rho_layers=3 --model.ml_model.rho_hidden_dim=256 --model.ml_model.rho_hidden_bias=false --model.ml_model.rho_last_bias=true
-  # ml_model:
-  #   class_path: econ_layers.layers.DeepSetMoments
-  #   init_args:
-  #     n_in: 1
-  #     n_out: 1
-  #     L: 4 # also the number of moments
-
-  #     rho_layers: 4
-  #     rho_hidden_dim: 256
-  #     rho_hidden_bias: false # breaks without
-  #     rho_last_bias: true
-  #     rho_activator:
-  #       class_path: torch.nn.ReLU        
+  

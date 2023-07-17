@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from pytorch_lightning.cli import LightningCLI
 from pathlib import Path
 from pytorch_lightning.loggers import WandbLogger
+import sys
 
 
 class InvestmentEuler(pl.LightningModule):
@@ -61,8 +62,6 @@ class InvestmentEuler(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore=["ml_model"])  # access with self.hparams.alpha, etc.
         self.ml_model = ml_model
-        # Solves the LQ problem to find the comparison for the nu=1 case and generating simulations
-        self.H_0, self.H_1 = self.investment_equilibrium_LQ()  # 1 firm is enough for
 
     # Calculates the LQ solution imposing symmetry by hand in the optimization process
     def investment_equilibrium_LQ(self):
@@ -163,71 +162,20 @@ class InvestmentEuler(pl.LightningModule):
             u_abs_error = torch.mean(torch.abs(self(X) - u_ref))
             self.log("val_u_abs_error", u_abs_error, prog_bar=True)
 
-    def test_step(self, batch, batch_idx):
-        # Test data includes trajectory number, time, etc.
-        X = batch["X"]
-        residuals = self.model_residuals(X)
-        loss = (residuals**2).sum() / len(residuals)
-        self.log("test_loss", loss, prog_bar=True)
-
-        # Additional logging results
-        if self.hparams.nu == 1:
-            u_linear = self.H_0 + self.H_1 * X.mean(1, keepdim=True)  # closed form if linear
-            u_X = self(X)
-            u_rel_error = torch.abs(u_X - u_linear) / torch.abs(u_linear)
-            u_abs_error = torch.abs(u_X - u_linear)
-            self.test_results = pd.concat(
-                [
-                    self.test_results,
-                    pd.DataFrame(
-                        {
-                            "t": batch["t"].squeeze().cpu().numpy().tolist(),
-                            "ensemble": batch["ensemble"].squeeze().cpu().numpy().tolist(),
-                            "u_hat": u_X.squeeze().cpu().numpy().tolist(),
-                            "residual": residuals.squeeze().cpu().numpy().tolist(),
-                            "u_reference": u_linear.squeeze().cpu().numpy().tolist(),
-                            "u_rel_error": u_rel_error.squeeze().cpu().numpy().tolist(),
-                            "u_abs_error": u_abs_error.squeeze().cpu().numpy().tolist(),
-                            "X_min": batch["X_min"].squeeze().cpu().numpy().tolist(),
-                            "X_max": batch["X_max"].squeeze().cpu().numpy().tolist(),
-                            "X_mean": batch["X_mean"].squeeze().cpu().numpy().tolist(),
-                            "X_std": batch["X_std"].squeeze().cpu().numpy().tolist(),
-                        }
-                    ),
-                ]
-            )
-            self.log("test_u_rel_error", torch.mean(u_rel_error), prog_bar=True)
-            self.log("test_u_abs_error", torch.mean(u_abs_error), prog_bar=True)
-        else:
-            u_X = self(X)
-            self.test_results = pd.concat(
-                [
-                    self.test_results,
-                    pd.DataFrame(
-                        {
-                            "t": batch["t"].squeeze().cpu().numpy().tolist(),
-                            "ensemble": batch["ensemble"].squeeze().cpu().numpy().tolist(),
-                            "u_hat": u_X.squeeze().cpu().numpy().tolist(),
-                            "residual": residuals.squeeze().cpu().numpy().tolist(),
-                            "X_min": batch["X_min"].squeeze().cpu().numpy().tolist(),
-                            "X_max": batch["X_max"].squeeze().cpu().numpy().tolist(),
-                            "X_mean": batch["X_mean"].squeeze().cpu().numpy().tolist(),
-                            "X_std": batch["X_std"].squeeze().cpu().numpy().tolist(),
-                        }
-                    ),
-                ]
-            )
-
-    # Data and simulation calculations.
+    # Data and simulation calculations
+    @torch.no_grad()
     def simulate(self, X_0, num_trajectories, f=None, w=None, omega=None, generator=None):
+        N = self.hparams.N
+        T = self.hparams.T
+
         # Simulates random numbers if not provided.
         if f is None:
             f = self.forward  # use the self.forward(..) by default
         if w is None:
             w = torch.randn(
                 num_trajectories,
-                self.hparams.T,
-                self.hparams.N,
+                T,
+                N,
                 device=self.device,
                 dtype=self.dtype,
                 generator=generator,
@@ -235,7 +183,7 @@ class InvestmentEuler(pl.LightningModule):
         if omega is None:
             omega = torch.randn(
                 num_trajectories,
-                self.hparams.T,
+                T,
                 1,
                 device=self.device,
                 dtype=self.dtype,
@@ -243,14 +191,14 @@ class InvestmentEuler(pl.LightningModule):
             )
         data = torch.zeros(
             num_trajectories,
-            self.hparams.T + 1,
-            self.hparams.N,
+            T + 1,
+            N,
             device=self.device,
             dtype=self.dtype,
         )
 
         data[:, 0, :] = X_0
-        for t in range(0, self.hparams.T):
+        for t in range(T):
             data[:, t + 1, :] = (
                 # Simulate using passed in "f",  which could be linear self.forward.
                 f(data[:, t, :])  # num_ensembles by N
@@ -258,104 +206,83 @@ class InvestmentEuler(pl.LightningModule):
                 + self.hparams.sigma * w[:, t, :]
                 + self.hparams.eta * omega[:, t]
             )
-        return torch.cat(data.unbind(0))
+        data_flat = data.flatten(start_dim=0, end_dim=1)
+        # Associate indices with the data, same order as flatten above
+        ensemble_indices, t_indices = torch.meshgrid(
+            torch.arange(num_trajectories), torch.arange(T + 1), indexing="ij"
+        )
+
+        return data_flat, ensemble_indices.flatten(), t_indices.flatten()
 
     # Setup data/etc.  Supposed to be in setup instead of the __init__
     def setup(self, stage):
-        if stage == "fit" or stage is None:
-            # quadrature for use within the expectation calculations
-            nodes, weights = quantecon.quad.qnwnorm(self.hparams.omega_quadrature_nodes)
-            nodes = torch.tensor(nodes, device=self.device, dtype=self.dtype)
-            weights = torch.tensor(weights, device=self.device, dtype=self.dtype)
+        N = self.hparams.N
+        T = self.hparams.T
 
-            # If provided, create a new RNG for reproducibility of the X_0 and expectation shocks
-            if self.hparams.X_0_seed > 0:
-                generator = torch.Generator(device=self.device)
-                generator.manual_seed(self.hparams.X_0_seed)
-            else:
-                generator = None  # otherwise use default RNG
+        # Solves the LQ problem to find the comparison for the nu=1 case and generating simulations
+        self.H_0, self.H_1 = self.investment_equilibrium_LQ()  # 1 firm is enough for
 
-            # Monte Carlo draw for the expectations, possibly normalizing it
-            vec = torch.randn(
-                1, self.hparams.N, device=self.device, dtype=self.dtype, generator=generator
+        # quadrature for use within the expectation calculations
+        nodes, weights = quantecon.quad.qnwnorm(self.hparams.omega_quadrature_nodes)
+        nodes = torch.tensor(nodes, device=self.device, dtype=self.dtype)
+        weights = torch.tensor(weights, device=self.device, dtype=self.dtype)
+
+        # If provided, create a new RNG for reproducibility of the X_0 and expectation shocks
+        if self.hparams.X_0_seed > 0:
+            generator = torch.Generator(device=self.device)
+            generator.manual_seed(self.hparams.X_0_seed)
+        else:
+            generator = None  # otherwise use default RNG
+
+        # Monte Carlo draw for the expectations, possibly normalizing it
+        vec = torch.randn(1, N, device=self.device, dtype=self.dtype, generator=generator)
+        expectation_shock_vector = (
+            (vec - vec.mean()) / vec.std() if self.hparams.normalize_shock_vector else vec
+        )
+
+        # Draw initial condition for the X_0 to simulate
+        X_0 = (
+            torch.normal(
+                self.hparams.X_0_loc,
+                self.hparams.X_0_scale,
+                size=(N,),
+                generator=generator,
             )
-            expectation_shock_vector = (
-                (vec - vec.mean()) / vec.std() if self.hparams.normalize_shock_vector else vec
+            .abs()
+            .type_as(expectation_shock_vector)
+        )
+
+        # Use a linear policy for initial simulation: h_0 + h_1 mean(X). h_0>0, h_1<0 guarantees stationarity and positivity. |h_0/h_1|<1 guarantees prices p(X)>0 in the sample
+        def initial_trajectory_policy(X):
+            return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
+
+        train_data, _, _ = self.simulate(
+            X_0, self.hparams.train_trajectories, initial_trajectory_policy, generator=generator
+        )
+        if self.hparams.train_subsample_trajectories > 0:
+            sample_idx = np.random.randint(
+                len(train_data), size=self.hparams.train_subsample_trajectories
             )
-
-            # Draw initial condition for the X_0 to simulate
-            X_0 = (
-                torch.normal(
-                    self.hparams.X_0_loc,
-                    self.hparams.X_0_scale,
-                    size=(self.hparams.N,),
-                    generator=generator,
-                )
-                .abs()
-                .type_as(expectation_shock_vector)
+            train_data = train_data[sample_idx]
+        if self.hparams.val_trajectories > 0:
+            val_data, _, _ = self.simulate(
+                X_0,
+                self.hparams.val_trajectories,
+                initial_trajectory_policy,
+                generator=generator,
             )
+            self.register_buffer("val_data", val_data)
+        else:
+            self.val_data = []
 
-            # Use a linear policy for initial simulation: h_0 + h_1 mean(X). h_0>0, h_1<0 guarantees stationarity and positivity. |h_0/h_1|<1 guarantees prices p(X)>0 in the sample
-            def initial_trajectory_policy(X):
-                return self.H_0 + self.H_1 * X.mean(1, keepdim=True)
-
-            train_data = self.simulate(
-                X_0, self.hparams.train_trajectories, initial_trajectory_policy, generator=generator
-            ).type_as(expectation_shock_vector)
-            if self.hparams.train_subsample_trajectories > 0:
-                sample_idx = np.random.randint(
-                    len(train_data), size=self.hparams.train_subsample_trajectories
-                )
-                train_data = train_data[sample_idx]
-            if self.hparams.val_trajectories > 0:
-                val_data = self.simulate(
-                    X_0,
-                    self.hparams.val_trajectories,
-                    initial_trajectory_policy,
-                    generator=generator,
-                ).type_as(expectation_shock_vector)
-                self.register_buffer("val_data", val_data)
-            else:
-                self.val_data = []
-
-            # Store buffers for optimization.  Replaces assignment to ensure it is transferred to GPU/etc. properly
-            self.register_buffer(
-                "quadrature_nodes", nodes
-            )  # i.e., instead of self.quadrature_nodes = nodes
-            self.register_buffer("quadrature_weights", weights)
-            self.register_buffer("expectation_shock_vector", expectation_shock_vector)
-            self.register_buffer("X_0", X_0)
-            self.register_buffer("train_data", train_data)
-
-        if stage == "test":
-            # Initial conditions and vectors for shocks are identical to those in the first stages
-
-            # If provided, create a new RNG for reproducibility of the test shocks
-            if self.hparams.test_seed > 0:
-                generator = torch.Generator(device=self.device)
-                generator.manual_seed(self.hparams.test_seed)
-            else:
-                generator = None  # otherwise use default RNG
-
-            test_trajectories = self.hparams.test_trajectories
-            # Note that this simulates with the built-in forward function itself, not the linear
-            self.test_data = self.simulate(
-                self.X_0, test_trajectories, generator=generator
-            ).reshape([test_trajectories, self.hparams.T + 1, self.hparams.N])
-            self.test_data = [
-                {
-                    "ensemble": n,
-                    "t": t,
-                    "X": self.test_data[n, t, :],
-                    "X_min": self.test_data[n, t, :].min(),
-                    "X_max": self.test_data[n, t, :].max(),
-                    "X_mean": self.test_data[n, t, :].mean(),
-                    "X_std": self.test_data[n, t, :].std(),
-                }
-                for n in range(test_trajectories)
-                for t in range(self.hparams.T + 1)
-            ]  # includes ensemble information for analysis
-            self.test_results = pd.DataFrame()
+        # Store buffers for optimization.  Replaces assignment to ensure it is transferred to GPU/etc. properly
+        self.register_buffer(
+            "quadrature_nodes", nodes
+        )  # i.e., instead of self.quadrature_nodes = nodes
+        self.register_buffer("quadrature_weights", weights)
+        self.register_buffer("expectation_shock_vector", expectation_shock_vector)
+        self.register_buffer("X_0", X_0)
+        self.register_buffer("train_data", train_data)
 
     def train_dataloader(self):
         return DataLoader(
@@ -374,14 +301,6 @@ class InvestmentEuler(pl.LightningModule):
             else len(self.val_data),
         )
 
-    def test_dataloader(self):
-        return DataLoader(
-            self.test_data,
-            batch_size=self.hparams.batch_size
-            if self.hparams.batch_size > 0
-            else len(self.test_data),
-        )
-
     # Reset simulation of training and validation data
     def on_train_epoch_end(self):
         # generates trajectories with current policy, regardless of nu
@@ -390,8 +309,63 @@ class InvestmentEuler(pl.LightningModule):
             and (self.current_epoch > 0)
             and (self.current_epoch % self.hparams.reset_trajectories_frequency == 0)
         ):
-            self.train_data = self.simulate(self.X_0, self.hparams.train_trajectories)
-            self.val_data = self.simulate(self.X_0, self.hparams.val_trajectories)
+            train_data, _, _ = self.simulate(self.X_0, self.hparams.train_trajectories)
+            val_data, _, _ = self.simulate(self.X_0, self.hparams.val_trajectories)
+
+    # With larger problems and random test_data use a test_step instead
+    @torch.no_grad()
+    def test_model(self):
+        N = self.hparams.N
+        T = self.hparams.T
+        # Initial conditions and vectors for shocks are identical to those in the first stages
+
+        # If provided, create a new RNG for reproducibility of the test shocks
+        if self.hparams.test_seed > 0:
+            generator = torch.Generator(device=self.device)
+            generator.manual_seed(self.hparams.test_seed)
+        else:
+            generator = None  # otherwise use default RNG
+
+        # Note that this simulates with the built-in forward function itself, not the linear
+        X, ensemble, t = self.simulate(
+            self.X_0, self.hparams.test_trajectories, generator=generator
+        )
+
+        # Calculate some reductions over the X dimension
+        u_hat = self(X).squeeze()  # policy
+        residuals = self.model_residuals(X).squeeze()
+        loss = residuals.square().mean()
+        self.logger.experiment.log({"test_loss": loss})
+
+        X_min = X.min(dim=1)[0]
+        X_max = X.max(dim=1)[0]
+        X_mean = X.mean(dim=1)
+        X_std = X.std(dim=1)
+
+        self.test_results = pd.DataFrame(
+            {
+                "ensemble": ensemble.squeeze().cpu().numpy().tolist(),
+                "t": t.squeeze().cpu().numpy().tolist(),
+                "u_hat": u_hat.squeeze().cpu().numpy().tolist(),
+                "residual": residuals.squeeze().cpu().numpy().tolist(),
+                "X_min": X_min.squeeze().cpu().numpy().tolist(),
+                "X_max": X_max.squeeze().cpu().numpy().tolist(),
+                "X_mean": X_mean.squeeze().cpu().numpy().tolist(),
+                "X_std": X_std.squeeze().cpu().numpy().tolist(),
+            }
+        )
+
+        if self.hparams.nu == 1:
+            # closed form if linear
+            u_linear = self.H_0 + self.H_1 * X.mean(1, keepdim=True).squeeze()
+            u_rel_error = torch.abs(u_hat - u_linear) / torch.abs(u_linear)
+            u_abs_error = torch.abs(u_hat - u_linear)
+            self.test_results["u_reference"] = u_linear.squeeze().cpu().numpy().tolist()
+            self.test_results["u_rel_error"] = u_rel_error.squeeze().cpu().numpy().tolist()
+            self.test_results["u_abs_error"] = u_abs_error.squeeze().cpu().numpy().tolist()
+            self.logger.experiment.log(
+                {"test_u_rel_error": u_rel_error, "test_u_abs_error": u_abs_error}
+            )
 
 
 def log_and_save(trainer, model, train_time, train_callback_metrics):
@@ -416,10 +390,13 @@ def log_and_save(trainer, model, train_time, train_callback_metrics):
         for callback in trainer.callbacks:
             if type(callback) == pl.callbacks.early_stopping.EarlyStopping:
                 early_stopping_monitor = callback.monitor
-                early_stopping_value = train_callback_metrics[callback.monitor].cpu().numpy().tolist()
+                early_stopping_value = (
+                    train_callback_metrics[callback.monitor].cpu().numpy().tolist()
+                )
                 early_stopping_threshold = callback.stopping_threshold
-                early_stopping_check_failed = not_number_type(early_stopping_value
-                ) or (early_stopping_value > callback.stopping_threshold)  # hardcoded to min for now.
+                early_stopping_check_failed = not_number_type(early_stopping_value) or (
+                    early_stopping_value > callback.stopping_threshold
+                )  # hardcoded to min for now.
                 break
 
         # Check transversality
@@ -547,7 +524,8 @@ if __name__ == "__main__":
     cli.trainer.fit(cli.model)
     train_time = timeit.default_timer() - start
     train_callback_metrics = cli.trainer.callback_metrics
-    cli.trainer.test(cli.model)
+    cli.model.eval()  # Enter evaluation mode, not training
+    cli.model.test_model()  # easier to write a manual test function than to use the trainer.test() here
 
     # Add additional calculations such as HPO objective to the log and save files
     log_and_save(cli.trainer, cli.model, train_time, train_callback_metrics)
