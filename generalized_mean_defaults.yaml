@@ -2,7 +2,7 @@ trainer:
   accelerator: cpu
   max_epochs: 1000
   min_epochs: 0
-  max_time: 00:00:3:00
+  max_time: 00:00:03:00
   precision: 32
   num_sanity_val_steps: 0
   logger:
