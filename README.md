@@ -8,7 +8,9 @@ Since manual tweaking of hyperparameters is slow and error prone, a variety of M
 ## Installing
 
 ### Quick Installation Instructions
-Within a python environment, clone this repository with git and execute `pip install -r requirements.txt`.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), clone this repository with git, and run `uv sync` in the project root.  This creates a local `.venv` with all dependencies pinned by `uv.lock`.
+
+To run commands in that environment, either prefix them with `uv run` (e.g. `uv run python investment_euler.py`) or activate the environment first with `source .venv/bin/activate` (`.venv\Scripts\activate` on Windows).
 
 See more complete instructions below in the [detailed installation](#detailed-installation-instructions) section.
 
@@ -94,37 +96,21 @@ Another visualization is to look at the correlation between the hyperparameter a
 
 
 # Detailed Installation Instructions
-For users with less experience using python, conda, and VS Code, the following provides more details.
+For users with less experience using python and VS Code, the following provides more details.
 
-1. Ensure you have installed Python.  For example, using [Anaconda](https://www.anaconda.com/products/individual)
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).  This manages the Python toolchain and dependencies for you — you do not need a separate Python or conda install.
 2. Recommended but not required: Install [VS Code](https://code.visualstudio.com/) along with its [Python Extension](https://code.visualstudio.com/docs/languages/python)
 3. Clone this repository
    - Recommended: With VS Code, go `<Shift-Control-P>` to open up the commandbar, then choose `Git Clone`, and use the URL `https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`.  That will give you a full environment to work with.
    - Alternatively, you can clone it with git installed `git clone https://github.com/HighDimensionalEconLab/symmetry_dynamic_programming.git`
-4. (Optional) create a conda [virtual environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
+4. Install dependencies.  With a terminal in that cloned folder, run
     ```bash
-    conda create -n symmetry_dp python=3.9
-    conda activate symmetry_dp
+    uv sync
     ```
-    - Python 3.10 is also broadly supported, but PyTorch doesn't fully support Python 3.11 yet.  See Troubleshooting below if Python 3.10 has issues.
-
-5. (Optional) In VS Code, you can then do `<Shift-Control-P>` to open up the commandbar, then choose `> Python: Select Interpreter`, and choose the one in the `symmetry_dp` environment.  Future `> Python: Terminal` commands then automatically activate it.
-    - If you are in VS Code, opening a python terminal with  `<Shift-Control-P>` then  `> Python: Terminal` and other terminals should automatically activate the environment and start in the correct location.
-
-6. Install dependencies.  With a terminal in that cloned folder (after, optionally, activating an environment as discussed above).
-    ```bash
-    pip install -r requirements.txt
-    ```
-7. (Optional) installation of PyTorch with GPU support.
-    - If the above process only installs the CPU version and you have a GPU available, follow for more details https://pytorch.org/get-started/locally/ with the activated environment.
-    - For example `conda install pytorch pytorch-cuda=11.8 -c pytorch -c nvidia`.
-    - Then, if you pass the `python investment_euler.py --trainer.accelerator=gpu` etc it will use available hardware
+    This creates a `.venv` in the project (downloading a compatible Python interpreter if needed) and installs the exact versions pinned in `uv.lock`.
+5. (Optional) In VS Code, do `<Shift-Control-P>` to open the commandbar, then choose `> Python: Select Interpreter`, and choose the interpreter in the project's `.venv`.  Future `> Python: Terminal` commands then automatically activate it.
+    - You can also run any command in the environment without activating it by prefixing with `uv run`, e.g. `uv run python investment_euler.py`.
+6. (Optional) installation of PyTorch with GPU support.
+    - The default `uv sync` installs a build of PyTorch suitable for your platform.  If you have a GPU and need a specific CUDA build, see https://docs.astral.sh/uv/guides/integration/pytorch/ and https://pytorch.org/get-started/locally/.
+    - Then, if you pass `uv run python investment_euler.py --trainer.accelerator=gpu` etc. it will use available hardware.
     - Note that GPUs are not required for these experiments, and are often slower.
-
-**Troubleshooting:**
-
-   - If you are having trouble installing packages on Windows with Python 3.10, then either downgrade to 3.9 or see [here](https://stackoverflow.com/questions/64261546/how-to-solve-error-microsoft-visual-c-14-0-or-greater-is-required-when-inst).  To summarize those steps:
-     - Download https://visualstudio.microsoft.com/visual-cpp-build-tools/
-     - Local to that folder in a terminal, run `vs_buildtools.exe --norestart --passive --downloadThenInstall --includeRecommended --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Workload.MSBuildTools
-`
-   - If PyTorch is not working after the initial installation, consider [installing manually](https://pytorch.org/get-started/locally/#start-locally) with `conda install pytorch cpuonly -c pytorch ` or something similar, and then retrying the dependencies installation.  GPUs are not required for these experiments.   If you get compatibility clashes between packages with the `pip install -r requirements.txt` then we recommend using a virtual environment with conda, as described above.

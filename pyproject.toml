@@ -1,2 +1,18 @@
-[tool.black]
-line-length = 100
+[project]
+name = "symmetry-dynamic-programming"
+version = "0.1.0"
+description = "Source for \"Exploiting Symmetry in High-Dimensional Dynamic Programming\""
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "econ-layers>=0.0.28",
+    "jsonargparse[all]>=4.20",
+    "lightning>=2",
+    "matplotlib>=3.7",
+    "pandas>=2.3.3",
+    "quantecon>=0.6",
+    "scipy>=1.7.1",
+    "torch>=2",
+    "wandb>=0.14",
+]
