@@ -125,6 +125,7 @@ def generalized_mean_simple(
     hc_set: HCSettings = HCSettings(),
     opt_set: OptimizerSettings = OptimizerSettings(),
     seed: int = 123,
+    use_gpu: bool = False,  # use a CUDA device if one is available, else fall back to CPU
     output_file: str = "generalized_mean_simple_results.json",
     verbose: bool = True,
     run_regression_test: bool = False,
@@ -163,6 +164,23 @@ def generalized_mean_simple(
         opt_set.num_test_points, a_min, a_max, std, X_distribution, N, p, generator=test_gen
     )
 
+    # The model and data are built on the CPU above; move them to the device once, here.
+    if use_gpu and torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif use_gpu and torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    if verbose:
+        if use_gpu and device.type == "cpu":
+            print("use_gpu=True but no CUDA/MPS device available; using CPU")
+        else:
+            print(f"device={device}")
+    model = model.to(device)
+    X_train, Y_train = X_train.to(device), Y_train.to(device)
+    X_val, Y_val = X_val.to(device), Y_val.to(device)
+    X_test, Y_test = X_test.to(device), Y_test.to(device)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=opt_set.lr)
     batch_size = opt_set.batch_size if opt_set.batch_size > 0 else opt_set.num_train_points
 
@@ -170,7 +188,7 @@ def generalized_mean_simple(
     train_loss = math.nan
     stopping_reason = "max_epochs"
     for epoch in range(opt_set.max_epochs):
-        perm = torch.randperm(opt_set.num_train_points)
+        perm = torch.randperm(opt_set.num_train_points, device=device)
         epoch_sq_error = 0.0
         for b in range(0, opt_set.num_train_points, batch_size):
             idx = perm[b : b + batch_size]
@@ -221,6 +239,7 @@ def generalized_mean_simple(
         "epochs_run": epoch + 1,
         "stopping_reason": stopping_reason,
         "train_time": train_time,
+        "device": str(device),
         "total_params": total_params,
         "trainable_params": trainable_params,
         # resolved config
