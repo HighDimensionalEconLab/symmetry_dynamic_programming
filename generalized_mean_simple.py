@@ -66,6 +66,7 @@ class DeepSet(nn.Module):
         phi_X = self.phi(X.unsqueeze(-1)).mean(dim=1)
         return self.rho(phi_X)
 
+
 def deepsets_HC(L, phi_layers, phi_hidden_dim, rho_layers, rho_hidden_dim):
     # phi carries biases throughout; rho's hidden layers are bias-free; ReLU between layers
     rho_modules = [nn.Linear(L, rho_hidden_dim, bias=False), nn.ReLU()]
@@ -129,13 +130,7 @@ def generalized_mean_simple(
         print(f"device={device}")
 
     torch.manual_seed(seed)
-    model = deepsets_HC(
-        hc_set.L,
-        hc_set.phi_layers,
-        hc_set.phi_hidden_dim,
-        hc_set.rho_layers,
-        hc_set.rho_hidden_dim,
-    )
+    model = deepsets_HC(**vars(hc_set))
 
     # Generate train and test data.
     X_train, Y_train = simulate_data(
@@ -174,7 +169,7 @@ def generalized_mean_simple(
             X_train, Y_train, batch_size=batch_size, drop_last=data_set.drop_last
         ):
             # Reset gradients and execute primal
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             loss = F.mse_loss(model(X_batch), Y_batch.unsqueeze(1))
 
             # Run AD and finish optimizer step
@@ -196,15 +191,17 @@ def generalized_mean_simple(
     train_time = time.perf_counter() - start
 
     # Evaluate on the test set (accumulate over batches -> same as a single-pass mean)
+    model.eval()
     test_sq_sum = test_abs_sum = test_rel_sum = 0.0
     with torch.no_grad():
         for X_batch, Y_batch in batches(X_test, Y_test, batch_size=batch_size):
             test_pred = model(X_batch)
             test_target = Y_batch.unsqueeze(1)
             test_residuals = test_target - test_pred
+            abs_res = test_residuals.abs()
             test_sq_sum += (test_residuals ** 2).sum().item()
-            test_abs_sum += torch.abs(test_residuals).sum().item()
-            test_rel_sum += (torch.abs(test_residuals) / torch.abs(test_target)).sum().item()
+            test_abs_sum += abs_res.sum().item()
+            test_rel_sum += (abs_res / test_target.abs()).sum().item()
     test_loss = test_sq_sum / data_set.num_test_points
     test_abs_error = test_abs_sum / data_set.num_test_points
     test_rel_error = test_rel_sum / data_set.num_test_points
