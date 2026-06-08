@@ -273,8 +273,9 @@ not the floor (the learnability ceiling is unchanged).
 | `skew_trajectory.py` | Diagnostic — single `N`, per-`L` training trajectory; CLI flags for detector / λ / ε-α / epochs. |
 | `collinearity_mc.py` | MC — ε's effect on `Y` decomposes into location+scale; orthogonal residual ~3e-4. |
 | `detector_mc.py` | MC — detector comparison (skewness, semivariance, Gini, quantile) + finite-N noise. |
+| `free_vars_experiment.py` | Auxiliary — earlier, *wider* in-distribution sweep (N up to 1024, num_points, 4 free-var configs, 7 seeds). Short budget (ep2000), so it under-trains the hard cells; kept for breadth, superseded for the clean capacity story by Exp 1–3. |
 | `run_all.sh` | Runner with every command and parameter variant used. |
-| `results/` | Reference CSVs and trajectory logs from the runs above. |
+| `results/` | Reference CSVs and trajectory logs from the runs above; see `results/NOTES.md` for per-file experiment descriptions and column definitions. |
 
 The trainer itself is `../generalized_mean_simple.py` (`skew_weight` on `DataSettings`; CLI via
 `jsonargparse`). The grid scripts are resumable (append to a CSV, skip done combos).
