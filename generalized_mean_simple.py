@@ -1,3 +1,8 @@
+# Standalone, dependency-light trainer (torch + jsonargparse) for a permutation-invariant DeepSet that
+# learns the generalized ("power") mean Y = (mean|X|^p)^(1/p) of an N-vector whose elements are i.i.d.
+# sinh-arcsinh (SHASH) shocks with a per-set latent (mu, sigma, epsilon, delta). Run as a CLI or import
+# generalized_mean_simple(...). The latent_dimension/ experiments use it to study how the DeepSet's
+# pooled latent width L relates to the dimension of the latent conditioning state.
 import json
 import math
 import time
@@ -31,27 +36,46 @@ class OptimizerSettings:
 
 @dataclass
 class DataSettings:
-    # Per-row mean a and std are drawn from a symmetric Beta(alpha, alpha) on [min, max].
-    # alpha = 1 is uniform, > 1 is hump-shaped (mass to the centre), < 1 is U-shaped (mass to edges).
-    # Test bounds/alphas default to the train ones; change them to probe out-of-distribution draws.
+    # Each set element is a sinh-arcsinh (SHASH) shock:
+    #   X = mu + sigma*sinh((asinh(Z) + epsilon)/delta),  Z ~ N(0, 1)   (eps=0, delta=1 -> Normal)
+    # and the target is Y = (mean |X|^p)^(1/p). The per-row mu (location), sigma (scale),
+    # epsilon (skew) and delta (tail weight) are each drawn from a symmetric Beta(alpha, alpha)
+    # scaled to [min, max]: alpha=1 is uniform, >1 hump-shaped, <1 U-shaped. Any *_test field left
+    # at None inherits the matching *_train value.
     num_train_points: int = 10
     num_test_points: int = 200
     shuffle: bool = True  # one-time shuffle of the training data (rows are i.i.d. either way)
     drop_last: bool = False  # drop the last partial training batch
     train_data_seed: int = 212
     test_data_seed: int = 441
-    a_min_train: float = 1.0
-    a_max_train: float = 3.0
-    a_alpha_train: float = 1.0
-    a_min_test: float = 1.0
-    a_max_test: float = 3.0
-    a_alpha_test: float = 1.0
-    std_min_train: float = 0.3
-    std_max_train: float = 0.3  # == std_min_train -> fixed std (no variation) by default
-    std_alpha_train: float = 1.0
-    std_min_test: float = 0.3
-    std_max_test: float = 0.3
-    std_alpha_test: float = 1.0
+    mu_min_train: float = 1.0
+    mu_max_train: float = 3.0
+    mu_alpha_train: float = 1.0
+    sigma_min_train: float = 0.3
+    sigma_max_train: float = 0.3  # == sigma_min_train -> fixed sigma (no variation) by default
+    sigma_alpha_train: float = 1.0
+    epsilon_min_train: float = 0.0
+    epsilon_max_train: float = 0.0  # == epsilon_min_train -> no skew by default
+    epsilon_alpha_train: float = 1.0
+    delta_min_train: float = 1.0
+    delta_max_train: float = 1.0  # == delta_min_train -> normal tails by default (delta > 0)
+    delta_alpha_train: float = 1.0
+    mu_min_test: float | None = None
+    mu_max_test: float | None = None
+    mu_alpha_test: float | None = None
+    sigma_min_test: float | None = None
+    sigma_max_test: float | None = None
+    sigma_alpha_test: float | None = None
+    epsilon_min_test: float | None = None
+    epsilon_max_test: float | None = None
+    epsilon_alpha_test: float | None = None
+    delta_min_test: float | None = None
+    delta_max_test: float | None = None
+    delta_alpha_test: float | None = None
+    # Target shaping: Y = (mean|X|^p)^(1/p) + skew_weight * standardized-sample-skewness(X).
+    # skew_weight=0 -> pure generalized mean. A nonzero weight adds a location/scale-invariant
+    # 3rd-moment term, so the target genuinely depends on the skew (epsilon) dimension.
+    skew_weight: float = 0.0
 
 
 class DeepSet(nn.Module):
@@ -84,14 +108,28 @@ def deepsets_HC(L, phi_layers, phi_hidden_dim, rho_layers, rho_hidden_dim):
     return DeepSet(phi, rho)
 
 
-def simulate_data(num_points, a_min, a_max, a_alpha, std_min, std_max, std_alpha, N, p, seed):
+def or_default(value, default):
+    return default if value is None else value
+
+
+def simulate_data(num_points, mu, sigma, epsilon, delta, N, p, seed, skew_weight=0.0):
+    # mu/sigma/epsilon/delta are (min, max, alpha): row-param ~ min + (max-min)*Beta(alpha, alpha).
     # Beta.sample() has no generator argument, so isolate and seed the global RNG for the draw.
+    def draw(bounds):
+        lo, hi, alpha = bounds
+        return lo + (hi - lo) * Beta(alpha, alpha).sample((num_points, 1))
+
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(seed)
-        a = a_min + (a_max - a_min) * Beta(a_alpha, a_alpha).sample((num_points, 1))  # per-row mean
-        std = std_min + (std_max - std_min) * Beta(std_alpha, std_alpha).sample((num_points, 1))  # per-row std
-        X = (a + std * torch.randn(num_points, N)).abs()  # rarely negative
-    Y = X.pow(p).mean(dim=1).pow(1 / p)  # generalized mean over each row
+        m, s, e, d = draw(mu), draw(sigma), draw(epsilon), draw(delta)
+        Z = torch.randn(num_points, N)
+        X = m + s * torch.sinh((torch.asinh(Z) + e) / d)  # sinh-arcsinh (SHASH) shock, signed
+    Y = X.abs().pow(p).mean(dim=1).pow(1 / p)  # generalized mean of |X| over each row
+    if skew_weight != 0.0:
+        c = X - X.mean(dim=1, keepdim=True)
+        m2 = c.pow(2).mean(dim=1)
+        skew = c.pow(3).mean(dim=1) / m2.pow(1.5)  # standardized sample skewness over each row
+        Y = Y + skew_weight * skew
     return X, Y
 
 
@@ -132,16 +170,31 @@ def generalized_mean_simple(
     torch.manual_seed(seed)
     model = deepsets_HC(**vars(hc_set))
 
-    # Generate train and test data.
+    # Generate train and test data. Each (min, max, alpha) tuple defines one SHASH parameter's draw;
+    # any unset test field inherits the matching train field.
+    mu_train = (data_set.mu_min_train, data_set.mu_max_train, data_set.mu_alpha_train)
+    sigma_train = (data_set.sigma_min_train, data_set.sigma_max_train, data_set.sigma_alpha_train)
+    epsilon_train = (data_set.epsilon_min_train, data_set.epsilon_max_train, data_set.epsilon_alpha_train)
+    delta_train = (data_set.delta_min_train, data_set.delta_max_train, data_set.delta_alpha_train)
+    mu_test = (or_default(data_set.mu_min_test, data_set.mu_min_train),
+               or_default(data_set.mu_max_test, data_set.mu_max_train),
+               or_default(data_set.mu_alpha_test, data_set.mu_alpha_train))
+    sigma_test = (or_default(data_set.sigma_min_test, data_set.sigma_min_train),
+                  or_default(data_set.sigma_max_test, data_set.sigma_max_train),
+                  or_default(data_set.sigma_alpha_test, data_set.sigma_alpha_train))
+    epsilon_test = (or_default(data_set.epsilon_min_test, data_set.epsilon_min_train),
+                    or_default(data_set.epsilon_max_test, data_set.epsilon_max_train),
+                    or_default(data_set.epsilon_alpha_test, data_set.epsilon_alpha_train))
+    delta_test = (or_default(data_set.delta_min_test, data_set.delta_min_train),
+                  or_default(data_set.delta_max_test, data_set.delta_max_train),
+                  or_default(data_set.delta_alpha_test, data_set.delta_alpha_train))
     X_train, Y_train = simulate_data(
-        data_set.num_train_points, data_set.a_min_train, data_set.a_max_train, data_set.a_alpha_train,
-        data_set.std_min_train, data_set.std_max_train, data_set.std_alpha_train, N, p,
-        data_set.train_data_seed,
+        data_set.num_train_points, mu_train, sigma_train, epsilon_train, delta_train, N, p,
+        data_set.train_data_seed, data_set.skew_weight,
     )
     X_test, Y_test = simulate_data(
-        data_set.num_test_points, data_set.a_min_test, data_set.a_max_test, data_set.a_alpha_test,
-        data_set.std_min_test, data_set.std_max_test, data_set.std_alpha_test, N, p,
-        data_set.test_data_seed,
+        data_set.num_test_points, mu_test, sigma_test, epsilon_test, delta_test, N, p,
+        data_set.test_data_seed, data_set.skew_weight,
     )
 
     # The model and data are built on the CPU above; move them to the device once, here.
@@ -223,18 +276,31 @@ def generalized_mean_simple(
         # resolved config
         "N": N,
         "p": p,
-        "a_min_train": data_set.a_min_train,
-        "a_max_train": data_set.a_max_train,
-        "a_alpha_train": data_set.a_alpha_train,
-        "a_min_test": data_set.a_min_test,
-        "a_max_test": data_set.a_max_test,
-        "a_alpha_test": data_set.a_alpha_test,
-        "std_min_train": data_set.std_min_train,
-        "std_max_train": data_set.std_max_train,
-        "std_alpha_train": data_set.std_alpha_train,
-        "std_min_test": data_set.std_min_test,
-        "std_max_test": data_set.std_max_test,
-        "std_alpha_test": data_set.std_alpha_test,
+        "mu_min_train": data_set.mu_min_train,
+        "mu_max_train": data_set.mu_max_train,
+        "mu_alpha_train": data_set.mu_alpha_train,
+        "mu_min_test": mu_test[0],
+        "mu_max_test": mu_test[1],
+        "mu_alpha_test": mu_test[2],
+        "sigma_min_train": data_set.sigma_min_train,
+        "sigma_max_train": data_set.sigma_max_train,
+        "sigma_alpha_train": data_set.sigma_alpha_train,
+        "sigma_min_test": sigma_test[0],
+        "sigma_max_test": sigma_test[1],
+        "sigma_alpha_test": sigma_test[2],
+        "epsilon_min_train": data_set.epsilon_min_train,
+        "epsilon_max_train": data_set.epsilon_max_train,
+        "epsilon_alpha_train": data_set.epsilon_alpha_train,
+        "epsilon_min_test": epsilon_test[0],
+        "epsilon_max_test": epsilon_test[1],
+        "epsilon_alpha_test": epsilon_test[2],
+        "delta_min_train": data_set.delta_min_train,
+        "delta_max_train": data_set.delta_max_train,
+        "delta_alpha_train": data_set.delta_alpha_train,
+        "delta_min_test": delta_test[0],
+        "delta_max_test": delta_test[1],
+        "delta_alpha_test": delta_test[2],
+        "skew_weight": data_set.skew_weight,
         "L": hc_set.L,
         "phi_layers": hc_set.phi_layers,
         "phi_hidden_dim": hc_set.phi_hidden_dim,
