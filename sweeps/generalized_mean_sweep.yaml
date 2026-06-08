@@ -1,0 +1,49 @@
+program: generalized_mean_simple.py
+name: HPO for generalized mean
+project: symmetry
+description: HPO for generalized mean
+# method: random
+method: bayes
+metric:
+  name: test_rel_error
+  goal: minimize
+
+# Launch each run through uv so it uses the project .venv
+command:
+  - ${env}
+  - uv
+  - run
+  - python
+  - ${program}
+  - ${args}
+
+parameters:
+
+  # Fix parameters here:
+  wandb_mode:
+    value: "online"
+
+  # Fixed opt_set parameters
+  opt_set.max_time:
+    value: 10.0 # seconds
+  opt_set.max_epochs:
+    value: 5000
+  opt_set.batch_size:
+    value: 0
+
+  # Fixed hc_set parameters
+  hc_set.L:
+    value: 4
+
+  # Fixed data_set parameters
+  data_set.num_train_points:
+    value: 10
+
+# Search parameters
+  opt_set.lr:
+    min: 1.0e-5
+    max: 1.0e-3
+  hc_set.phi_layers:
+    values: [2, 3, 4]
+  hc_set.phi_hidden_dim:
+    values: [64, 128, 256]

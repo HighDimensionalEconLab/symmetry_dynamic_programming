@@ -1,0 +1,6 @@
+# Minimal pip requirements to run generalized_mean_simple.py (and its sweeps) on a cluster.
+# These are the only third-party imports in the file; everything else is stdlib
+# (json, math, time, dataclasses). pip resolves transitive deps automatically.
+torch
+jsonargparse
+wandb

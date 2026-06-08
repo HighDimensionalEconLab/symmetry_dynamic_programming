@@ -1,0 +1,101 @@
+program: generalized_mean_simple.py
+name: d3_skew HPO (L=3)
+project: symmetry
+description: >
+  HPO for the genuine d=3 skew-augmented target (latent_dimension/d3_skew).
+  Fixed L=3, N=1024, skew_weight=0.04, all three latent coords active
+  (mu, sigma, epsilon; delta fixed). Search lr + phi/rho widths and depths.
+method: bayes
+metric:
+  name: test_rel_error
+  goal: minimize
+
+parameters:
+
+  # ---- fixed: run on GPU, log online ----
+  use_gpu:
+    value: true
+  wandb_mode:
+    value: "online"
+
+  # ---- fixed: problem definition (genuine d=3 skew target) ----
+  N:
+    value: 1024
+  p:
+    value: 1.5
+  data_set.skew_weight:
+    value: 0.04
+
+  # d=3 active latent coords: mu (location), sigma (scale), epsilon (skew); delta fixed
+  data_set.mu_min_train:
+    value: 1.0
+  data_set.mu_max_train:
+    value: 3.0
+  data_set.sigma_min_train:
+    value: 0.1
+  data_set.sigma_max_train:
+    value: 0.5
+  data_set.epsilon_min_train:
+    value: -1.0
+  data_set.epsilon_max_train:
+    value: 1.0
+  data_set.epsilon_alpha_train:
+    value: 0.5   # Beta(0.5,0.5) -> U-shaped: piles eps at corners (+/-1), amplifies need for L=3
+  data_set.delta_min_train:
+    value: 1.0
+  data_set.delta_max_train:
+    value: 1.0   # delta fixed -> normal tails, so d stays 3
+
+  # ---- fixed: data sizes + data seeds (train/test data identical across runs) ----
+  data_set.num_train_points:
+    value: 1000
+  data_set.num_test_points:
+    value: 3000
+  data_set.train_data_seed:
+    value: 200
+  data_set.test_data_seed:
+    value: 300
+
+  # ---- fixed: the latent width we want to make work well ----
+  hc_set.L:
+    value: 3
+
+  # ---- fixed: optimizer budget (time-bound; allow lots of epochs) ----
+  opt_set.max_epochs:
+    value: 100000   # large -> max_time is the real cap
+  opt_set.max_time:
+    value: 120.0    # 2 minutes per run
+  opt_set.stopping_threshold:
+    value: 1.0e-6
+  opt_set.print_interval:
+    value: 0        # quiet per-epoch logs; watch test_rel_error in W&B
+
+  # ---- fixed: plateau LR schedule on (floor fixed; factor/patience searched below) ----
+  opt_set.lr_schedule:
+    value: "plateau"
+  opt_set.min_lr:
+    value: 1.0e-6
+
+  # ================= search space =================
+  opt_set.lr:
+    distribution: log_uniform_values
+    min: 1.0e-4
+    max: 5.0e-3
+  opt_set.lr_factor:
+    values: [0.5, 0.9, 0.95]   # lr *= factor on a plateau (smaller = sharper drop)
+  opt_set.lr_patience:
+    values: [10, 100, 1000]    # epochs w/o train_loss improvement before a drop
+  opt_set.batch_size:
+    values: [0, 128, 256]   # 0 -> full batch (== num_train_points = 1000)
+  hc_set.phi_hidden_dim:
+    values: [64, 128, 256]
+  hc_set.rho_hidden_dim:
+    values: [64, 128, 256]
+  hc_set.phi_layers:
+    values: [2, 3, 4]
+  hc_set.rho_layers:
+    values: [2, 3, 4]
+  # model-init / shuffle seed: NOT a real hyperparameter. Searched only so the sweep
+  # samples several inits and we get a robustness read (distinct from the 200/300 data seeds).
+  seed:
+    values: [123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133]

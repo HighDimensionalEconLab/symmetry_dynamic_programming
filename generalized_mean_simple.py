@@ -13,6 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Beta
 import jsonargparse
+import wandb
 
 
 @dataclass
@@ -32,6 +33,10 @@ class OptimizerSettings:
     batch_size: int = 32  # <=0 -> full batch
     stopping_threshold: float = 1e-6  # stop when epoch train_loss <= this
     print_interval: int = 50  # print progress every this many epochs (<=0 disables)
+    lr_schedule: str = "none"  # "none" or "plateau" (ReduceLROnPlateau on train_loss)
+    lr_factor: float = 0.5  # plateau: lr *= lr_factor when train_loss stalls
+    lr_patience: int = 100  # plateau: epochs with no train_loss improvement before a drop
+    min_lr: float = 1e-6  # plateau: lower bound on the learning rate
 
 
 @dataclass
@@ -151,11 +156,15 @@ def generalized_mean_simple(
     seed: int = 123,
     use_gpu: bool = False,  # use a CUDA or MPS device if available, else fall back to CPU
     output_file: str = "generalized_mean_simple_results.json",
+    wandb_mode: str = "disabled",  # "disabled", "offline", or "online"
     verbose: bool = True,
 ):
     assert len({seed, data_set.train_data_seed, data_set.test_data_seed}) == 3, (
         "seed, train_data_seed, test_data_seed must be distinct"
     )
+
+    if not wandb_mode == "disabled":
+        wandb.init(project="symmetry", mode=wandb_mode)
 
     if use_gpu and torch.cuda.is_available():
         device = torch.device("cuda")
@@ -202,8 +211,15 @@ def generalized_mean_simple(
     X_train, Y_train = X_train.to(device), Y_train.to(device)
     X_test, Y_test = X_test.to(device), Y_test.to(device)
 
-    # Setup the optimizer
+    # Setup the optimizer (and an optional plateau learning-rate schedule)
     optimizer = torch.optim.Adam(model.parameters(), lr=opt_set.lr)
+    scheduler = (
+        torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, factor=opt_set.lr_factor, patience=opt_set.lr_patience, min_lr=opt_set.min_lr
+        )
+        if opt_set.lr_schedule == "plateau"
+        else None
+    )
     batch_size = opt_set.batch_size if opt_set.batch_size > 0 else data_set.num_train_points
 
     # One-time shuffle of the training data; the batch loop below streams it in fixed order
@@ -231,9 +247,11 @@ def generalized_mean_simple(
             epoch_sq_error += loss.item() * len(X_batch)
             n_seen += len(X_batch)
         train_loss = epoch_sq_error / n_seen  # n_seen handles drop_last
+        if scheduler is not None:
+            scheduler.step(train_loss)
 
         if verbose and opt_set.print_interval > 0 and epoch % opt_set.print_interval == 0:
-            print(f"epoch {epoch:4d}  train_loss {train_loss:.3e}")
+            print(f"epoch {epoch:4d}  train_loss {train_loss:.3e}  lr {optimizer.param_groups[0]['lr']:.2e}")
 
         if train_loss <= opt_set.stopping_threshold:
             stopping_reason = "stopping_threshold"
@@ -307,6 +325,11 @@ def generalized_mean_simple(
         "rho_layers": hc_set.rho_layers,
         "rho_hidden_dim": hc_set.rho_hidden_dim,
         "lr": opt_set.lr,
+        "lr_schedule": opt_set.lr_schedule,
+        "lr_factor": opt_set.lr_factor,
+        "lr_patience": opt_set.lr_patience,
+        "min_lr": opt_set.min_lr,
+        "final_lr": optimizer.param_groups[0]["lr"],
         "batch_size": opt_set.batch_size,
         "max_epochs": opt_set.max_epochs,
         "max_time": opt_set.max_time,
@@ -322,6 +345,11 @@ def generalized_mean_simple(
 
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
+
+    if not wandb_mode == "disabled":
+        wandb.log(results)
+        wandb.finish()
+
     if verbose:
         print(f"stopping_reason={stopping_reason}  epochs_run={epoch + 1}  train_time={train_time:.2f}s")
         print(f"test_loss={test_loss:.3e}  test_rel_error={test_rel_error:.3e}  test_abs_error={test_abs_error:.3e}")
